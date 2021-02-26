@@ -67,7 +67,6 @@ unsigned char* PatternScan(void* m_pModule, const char* m_szSignature) {
 	}
 	return nullptr;
 }
-#define TBOT_KEY VK_MENU // aka alt
 namespace fnv_1a {
 	template< typename S >
 	struct fnv_internal;
