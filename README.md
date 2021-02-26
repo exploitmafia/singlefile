@@ -1,5 +1,8 @@
 # singlefile
 featured cs:go internal hack, one file and less than 1000 lines.
+
+download a dll @ : (coming soon, will upload to unknowncheats) (or you can build yourself :P)
+
 ## features
 * gui
 
