@@ -9,6 +9,7 @@
 void* client_dll = nullptr;
 void* engine_dll = nullptr;
 int CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
+#define TriggerBotKEY VK_MBUTTON // 0 for no key or a vk code (ex. ALT = VK_LMENU, see https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
 typedef enum MH_STATUS
 {
 	MH_UNKNOWN = -1,
@@ -32,15 +33,9 @@ extern "C" {
 	MH_STATUS WINAPI MH_Initialize(VOID);
 	MH_STATUS WINAPI MH_Uninitialize(VOID);
 	MH_STATUS WINAPI MH_CreateHook(LPVOID pTarget, LPVOID pDetour, LPVOID* ppOriginal);
-	MH_STATUS WINAPI MH_CreateHookApi(LPCWSTR pszModule, LPCSTR pszProcName, LPVOID pDetour, LPVOID* ppOriginal);
-	MH_STATUS WINAPI MH_CreateHookApiEx(LPCWSTR pszModule, LPCSTR pszProcName, LPVOID pDetour, LPVOID* ppOriginal, LPVOID* ppTarget);
 	MH_STATUS WINAPI MH_RemoveHook(LPVOID pTarget);
 	MH_STATUS WINAPI MH_EnableHook(LPVOID pTarget);
 	MH_STATUS WINAPI MH_DisableHook(LPVOID pTarget);
-	MH_STATUS WINAPI MH_QueueEnableHook(LPVOID pTarget);
-	MH_STATUS WINAPI MH_QueueDisableHook(LPVOID pTarget);
-	MH_STATUS WINAPI MH_ApplyQueued(VOID);
-	const char* WINAPI MH_StatusToString(MH_STATUS status); 
 }
 
 unsigned char* PatternScan(void* m_pModule, const char* m_szSignature) {
@@ -48,7 +43,7 @@ unsigned char* PatternScan(void* m_pModule, const char* m_szSignature) {
 	unsigned char* first_match = 0x0;
 	PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)m_pModule;
 	PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((char*)m_pModule + dos->e_lfanew);
-	for (unsigned char* current = (unsigned char*)m_pModule; current < (uint8_t*)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
+	for (unsigned char* current = (unsigned char*)m_pModule; current < (unsigned char*)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
 		if (*(unsigned char*)pat == '\?' || *(unsigned char*)current == GET_BYTE(pat)) {
 			if (!*pat)
 				return first_match;
@@ -95,23 +90,27 @@ __forceinline I v(void* iface, unsigned int index) { return (I)((*(unsigned int*
 using matrix_t = float[3][4];
 using matrix4x4_t = float[4][4];
 // config system
-int config;
+unsigned long long config;
 bool menu_open = true;
 enum {
-	BHOP = 2,
-	AUTOPISTOL = 4, 
-	HITSOUND = 8,
-	BOX_ESP = 16,
-	NAME_ESP = 32,
-	HEALTH_BAR = 64, 
-	ESP_TEAM = 128,
-	SPECTATOR_LIST = 256,
-	DISABLE_POSTPROCESS = 512, 
-	ESP_DORMANT = 1024,
-	NOSCOPE_CROSSHAIR = 2048,
-	RECOIL_CROSSHAIR = 4096,
-	DEAD_ESP = 8192,
-	AUTO_ACCEPT = 16384,
+	BHOP = 1,
+	AUTOPISTOL = 2,
+	HITSOUND = 4,
+	BOX_ESP = 8,
+	NAME_ESP = 16,
+	HEALTH_BAR = 32,
+	ESP_TEAM = 64,
+	SPECTATOR_LIST = 128,
+	DISABLE_POSTPROCESS = 256,
+	ESP_DORMANT = 512,
+	NOSCOPE_CROSSHAIR = 1024,
+	RECOIL_CROSSHAIR = 2048,
+	DEAD_ESP = 4096,
+	AUTO_ACCEPT = 8192,
+	TRIGGERBOT = 16384,
+	GAMEKEYBOARD = 32768,
+	RADAR = 65536,	
+	BROKEN = 131702, // do not assign this to anything
 };
 class vec3 {
 public:
@@ -131,9 +130,10 @@ public:
 	vec3 operator/(const vec3& in) { return vec3(x / in.x, y / in.y, z / in.z); }
 	float dot(float* a) { return x * a[0] + y * a[1] + z * a[2]; }
 	float lengthsqr() { return (x * x + y * y + z * z); }
+	float length2d() { return sqrt(x * x + y * y); }
 	void clear() { x = y = z = 0.f; }
 };
-struct splayerinfo {
+struct SPlayerInfo {
 	unsigned long long m_ullVersion;
 	union {
 		unsigned long long m_ullXUID;
@@ -265,6 +265,21 @@ public:
 	__forceinline bool& IsScoped() {
 		return *(bool*)(this + 0x3928);
 	}
+	__forceinline bool& Spotted() {
+		return *(bool*)(this + 0x93D);
+	}
+	__forceinline int& ObserverMode() {
+		return *(int*)(this + 0x3378);
+	}
+	__forceinline float& FlashDuration() {
+		return *(float*)(this + 0xA420);
+	}
+	__forceinline int Ammo() {
+		return *(int*)(this + 0x3264);
+	}
+	__forceinline int CrosshairTarget() {
+		return *(int*)(this + 0xB3E4);
+	}
 };
 class CGlobalVarsBase {
 public:
@@ -301,8 +316,8 @@ public:
 	__forceinline void GetScreenSize(uint32_t& w, uint32_t& h) {
 		return v<void(__thiscall*)(void*, uint32_t&, uint32_t&)>(this, 5)(this, w, h);
 	}
-	__forceinline bool GetPlayerInfo(int idx, splayerinfo* info) {
-		return v<bool(__thiscall*)(void*, int, splayerinfo*)>(this, 8)(this, idx, info);
+	__forceinline bool GetPlayerInfo(int idx, SPlayerInfo* info) {
+		return v<bool(__thiscall*)(void*, int, SPlayerInfo*)>(this, 8)(this, idx, info);
 	}
 	__forceinline unsigned int GetLocalPlayer() {
 		return v<unsigned int(__thiscall*)(void*)>(this, 12)(this);
@@ -318,6 +333,9 @@ public:
 	}
 	__forceinline const char* GetVersionString() {
 		return v<const char* (__thiscall*)(void*)>(this, 105)(this);
+	}
+	__forceinline int GetPlayerIndex(int m_nIndex) {
+		return v<int(__thiscall*)(void*, int)>(this, 9)(this, m_nIndex);
 	}
 };
 class IGameEvent {
@@ -403,10 +421,11 @@ bool IsMouseInRegion(int x, int y, int w, int h) {
 }
 #include <iostream>
 #include <fstream>
-
 void load() { // not proud of using cpp here, but line count matters...
 	std::ifstream ss;
-	ss.open("singlefile.cfg");;
+	ss.open("singlefile.cfg");
+	if (!ss.good())
+		return;
 	ss >> config;
 }
 void save() {
@@ -416,7 +435,7 @@ void save() {
 }
 namespace menu {
 	unsigned long font, esp;
-	int x_pos = 0, y_pos = 0;
+	int x_pos = 0, y_pos = 0, vheight = 0, rpos = 0;
 	void window(const wchar_t* name, vec2 pos, vec2 size) {
 		interfaces.surface->SetColor(23, 23, 30, 255);
 		interfaces.surface->DrawRectOutline(pos.x - 1, pos.y - 1, size.x + 2, size.y + 2);
@@ -440,8 +459,16 @@ namespace menu {
 		interfaces.surface->DrawText(name, wcslen(name));
 		x_pos = pos.x + 10;
 		y_pos = pos.y + 25;
+		rpos = pos.x;
+		vheight = size.y;
 	}
-	void checkbox(const wchar_t* name, int* config, int option) {
+	void column(int x) {
+		x_pos += 20 + x;
+		interfaces.surface->SetColor(17, 17, 17, 255);
+		interfaces.surface->DrawFilledRect(x_pos - 5, rpos + 26, 1, vheight - 60 + 24);
+		y_pos = rpos + 25;
+	}
+	void checkbox(const wchar_t* name, unsigned long long* config, unsigned long long option) {
 		interfaces.surface->SetColor(27, 27, 27, 255);
 		interfaces.surface->DrawRectOutline(x_pos, y_pos, 12, 12);
 		interfaces.surface->SetColor(37, 37, 38, 255);
@@ -454,7 +481,7 @@ namespace menu {
 		interfaces.surface->SetTextPosition(x_pos + 15, y_pos);
 		interfaces.surface->SetTextFont(menu::font);
 		interfaces.surface->DrawText(name, wcslen(name));
-		if (IsMouseInRegion(x_pos, y_pos, 12, 12) && GetAsyncKeyState(VK_LBUTTON) & 1)
+		if (IsMouseInRegion(x_pos, y_pos, 12, 12) && GetAsyncKeyState(VK_LBUTTON) & 1 && GetAsyncKeyState(VK_LBUTTON))
 			*config ^= option;
 		y_pos += 15;
 	}
@@ -471,8 +498,7 @@ namespace menu {
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition(pos.x + (size.x / 2) - u / 2, pos.y + (size.y / 2) - i / 2);
 		interfaces.surface->DrawText(name, wcslen(name));
-		//interfaces.surface->SetTextPosition()
-		if (IsMouseInRegion(pos.x, pos.y, size.x, size.y) && GetAsyncKeyState(VK_LBUTTON) & 1)
+		if (IsMouseInRegion(pos.x, pos.y, size.x, size.y) && GetAsyncKeyState(VK_LBUTTON) & 1 && GetAsyncKeyState(VK_LBUTTON))
 			return true;
 		return false;
 	}
@@ -484,7 +510,7 @@ void SetupFonts() {
 	interfaces.surface->SetFontGlyphs(menu::esp, "Tahoma", 12, 600, 0x080); // dropshadow = 0x080, antialias = 0x010, outline = 0x200
 }
 void RenderMenu() {
-	menu::window(L"singlefile csgo internal", { 50, 50 }, { 200, 260 });
+	menu::window(L"singlefile csgo internal", { 50, 50 }, { 420, 260 });
 	menu::checkbox(L"bhop", &config, BHOP); 
 	menu::checkbox(L"auto pistol", &config, AUTOPISTOL);
 	menu::checkbox(L"hitsound", &config, HITSOUND);
@@ -498,9 +524,16 @@ void RenderMenu() {
 	menu::checkbox(L"noscope crosshair", &config, NOSCOPE_CROSSHAIR);
 	menu::checkbox(L"recoil crosshair", &config, RECOIL_CROSSHAIR);
 	menu::checkbox(L"auto accept", &config, AUTO_ACCEPT);
-	if (menu::button(L"load", {60, 270}, {85, 30}))
+	
+	menu::column(184);
+
+	menu::checkbox(L"triggerbot", &config, TRIGGERBOT);
+	menu::checkbox(L"radar", &config, RADAR);
+	menu::checkbox(L"disable keyboard in menu", &config, GAMEKEYBOARD);
+
+	if (menu::button(L"load", {60, 270}, {195, 30}))
 		load();
-	if (menu::button(L"save", {155, 270}, {85, 30}))
+	if (menu::button(L"save", {265, 270}, {195, 30}))
 		save();
 }
 
@@ -530,6 +563,7 @@ bool(__stdcall* CreateMoveOriginal)(float, CUserCmd*);
 void(__thiscall* PaintTraverseOriginal)(IPanel*, unsigned int, bool, bool);
 bool(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
 void(__stdcall* EmitSoundOriginal)(void*, int, int, const char*, unsigned int, const char*, float, int, int, int, int, const vec3&, const vec3&, void*, bool, float, int, void*);
+int(__fastcall* SvCheatsGetIntOriginal)(void*);
 LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (uMsg == WM_KEYDOWN) {
@@ -577,8 +611,7 @@ void autoaccept(const char* sound) {
 	}
 }
 template <typename T>
-static T RelativeToAbsolute(unsigned int m_pAddress) 
-{
+static T RelativeToAbsolute(unsigned int m_pAddress)  {
 	return (T)(m_pAddress + 0x4 + *(int*)(m_pAddress));
 }
 struct bbox {
@@ -690,7 +723,7 @@ void players() {
 			interfaces.surface->SetTextColor(255, 255, 255, 255);
 			interfaces.surface->SetTextFont(menu::font);
 			unsigned int o, p;
-			splayerinfo plr;
+			SPlayerInfo plr;
 			interfaces.engine->GetPlayerInfo(i, &plr);
 			wchar_t wname[128];
 			if (MultiByteToWideChar(65001, 0, plr.m_szName, -1, wname, 128)) {
@@ -710,6 +743,8 @@ void players() {
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
 			interfaces.surface->DrawFilledRect(box.x - 9, box.y + box.h - ((box.h * (entity->GetHealth() / 100.f))), 3, (box.h * entity->GetHealth() / 100.f) + (entity->GetHealth() == 100 ? 0 : 1));
 		}
+		if (config & RADAR)
+			entity->Spotted() = true;
 	}
 }
 void cvars() {
@@ -717,6 +752,10 @@ void cvars() {
 	interfaces.cvar->FindVar("mat_postprocess_enable")->SetValue(config & DISABLE_POSTPROCESS ? 0 : 1); 
 	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config & RECOIL_CROSSHAIR ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
 	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config & NOSCOPE_CROSSHAIR) && !localplayer->IsScoped()) ? 2 : 0);
+	if (localplayer->GetHealth() < 0 && localplayer->GetObserverTarget())
+		localplayer->ObserverMode() = 5;
+	else
+		localplayer->ObserverMode() = 4;
 }
 int b = 0;
 void speclist() {
@@ -732,7 +771,7 @@ void speclist() {
 				continue;
 			if (entity->GetObserverTarget() != localplayer)
 				continue;
-			splayerinfo player;
+			SPlayerInfo player;
 			interfaces.engine->GetPlayerInfo(i, &player);
 			interfaces.surface->SetTextColor(255, 255, 255, 255);
 			interfaces.surface->SetTextFont(menu::font);
@@ -748,6 +787,19 @@ void speclist() {
 	}
 	b = 0;
 }
+void triggerbot(CUserCmd* cmd) {
+	if (!(config & TRIGGERBOT))
+		return;
+	CBaseEntity* lp = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
+	if (!lp || (lp->GetHealth() < 1) || !lp->CrosshairTarget())
+		return;
+	CBaseEntity* target = interfaces.entitylist->GetEntity((lp->CrosshairTarget()));
+	if (TriggerBotKEY && !GetAsyncKeyState(TriggerBotKEY))
+		return;
+	if (!target->GetHealth() || lp->FlashDuration() > 0.1f || !lp->GetWeapon()->Ammo() || lp->GetWeapon()->WeaponNextAttack() > interfaces.globals->m_flCurrentTime || (!lp->IsScoped() && lp->GetWeapon()->GetWeaponType() == 5) || lp->GetTeamNumber() == target->GetTeamNumber()) // dumbass "hitchance" calculation but it's close enough ig
+		return;
+	cmd->m_nButtons |= IN_ATTACK;
+}
 bool __stdcall _CreateMove(float m_flInputSampleTime, CUserCmd* cmd) {
 	bool SetViewAngles = CreateMoveOriginal(m_flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
@@ -756,6 +808,7 @@ bool __stdcall _CreateMove(float m_flInputSampleTime, CUserCmd* cmd) {
 	}
 	bhop(cmd);
 	autopistol(cmd);
+	triggerbot(cmd);
 	return SetViewAngles;
 }
 void __stdcall _EmitSound(void* filter, int entityIndex, int channel, const char* soundEntry, unsigned int soundEntryHash, const char* sample, float volume, int seed, int soundLevel, int flags, int pitch, const vec3& origin, const vec3& direction, void* utlVecOrigins, bool updatePositions, float soundtime, int speakerentity, void* soundParams) { // thank you danielkrupinski/Osiris for these arguments
@@ -765,7 +818,7 @@ void __stdcall _EmitSound(void* filter, int entityIndex, int channel, const char
 bool __stdcall _GameEvents(IGameEvent* event) {
 	if (config & HITSOUND) {
 		if (strstr(event->GetName(), "player_hurt")) {
-			splayerinfo player;
+			SPlayerInfo player;
 			interfaces.engine->GetPlayerInfo(interfaces.engine->GetLocalPlayer(), &player);
 			if (event->GetInt("attacker") == player.m_nUserID)
 				interfaces.engine->ClientCmdUnrestricted("play buttons/arena_switch_press_02");
@@ -783,29 +836,21 @@ void __stdcall _PaintTraverse(unsigned int panel, bool m_bForceRepaint, bool m_b
 	}
 	if (drawing == fnv::hash("FocusOverlayPanel")) {
 		interfaces.panel->SetInputMouseState(panel, menu_open);
+		interfaces.panel->SetInputKeyboardState(panel, menu_open && (config & GAMEKEYBOARD));
 	}
 	return PaintTraverseOriginal(interfaces.panel, panel, m_bForceRepaint, m_bAllowRepaint);
 }
-unsigned int GetVirtualAddress(void* m_pClass, unsigned m_nIndex) {
-	return (unsigned int)((*(int**)(m_pClass))[m_nIndex]);
-}
-
 void LoadHooks() {
 	MH_Initialize();
-	void* CreateMoveAddress = (void*)GetVirtualAddress(interfaces.client_mode, 24);
-	void* PaintTraverseAddress = (void*)GetVirtualAddress(interfaces.panel, 41);
-	void* FireGameEventsAddress = (void*)GetVirtualAddress(interfaces.events, 9);
-	void* EmitSoundAddress = (void*)GetVirtualAddress(interfaces.sound, 5);
+	void* CreateMoveAddress = v<void*>(interfaces.client_mode, 24);
+	void* PaintTraverseAddress = v<void*>(interfaces.panel, 41);
+	void* FireGameEventsAddress = v<void*>(interfaces.events, 9);
+	void* EmitSoundAddress = v<void*>(interfaces.sound, 5);
 	MH_CreateHook(CreateMoveAddress, &_CreateMove, (void**)&CreateMoveOriginal);
-	printf("hooked createmove (0x%p) -> (0x%p)\n", CreateMoveAddress, _CreateMove);
 	MH_CreateHook(PaintTraverseAddress, &_PaintTraverse, (void**)&PaintTraverseOriginal);
-	printf("hooked painttraverse (0x%p) -> (0x%p)\n", PaintTraverseAddress, _PaintTraverse);
 	MH_CreateHook(FireGameEventsAddress, &_GameEvents, (void**)&GameEventsOriginal);
-	printf("hooked firegameevents (0x%p) -> (0x%p)\n", FireGameEventsAddress, _GameEvents);
 	MH_CreateHook(EmitSoundAddress, &_EmitSound, (void**)&EmitSoundOriginal);
-	printf("hooked emitsound (0x%p) -> (0x%p)\n", EmitSoundAddress, _EmitSound);
 	MH_EnableHook(MH_ALL_HOOKS);
-	printf("hooks enabled.\n");
 }
 template <class T>
 T CreateInterface(void* m_pModule, const char* m_szInterface) {
@@ -818,7 +863,7 @@ void __stdcall Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.1: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", nullptr);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
@@ -827,7 +872,7 @@ void __stdcall Init (HMODULE mod) {
 	void* vgui2_dll = GetModuleHandleA("vgui2.dll");
 	void* vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
-	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.2"))
+	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.5"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are expierencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
@@ -841,6 +886,10 @@ void __stdcall Init (HMODULE mod) {
 	LoadHooks();
 	SetupFonts();
 	printf("finished loading.\n");
+	while (!GetAsyncKeyState(VK_END))
+		Sleep(500);
+	MH_DisableHook(MH_ALL_HOOKS);
+	MH_Uninitialize();
 }
 BOOL APIENTRY DllMain(HMODULE m_hModule, DWORD m_dwReason, LPVOID m_pReserved) {
 	DisableThreadLibraryCalls(m_hModule);
@@ -848,6 +897,6 @@ BOOL APIENTRY DllMain(HMODULE m_hModule, DWORD m_dwReason, LPVOID m_pReserved) {
 		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)Init, m_hModule, 0, NULL);
 	return TRUE;
 }
-int GetLineCount() { // must be at bottom obviously
+int GetLineCount() { // must be at bottom obviously :P
 	return (__LINE__ + 1);
 }
