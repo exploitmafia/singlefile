@@ -1,7 +1,7 @@
 # singlefile
 featured cs:go internal hack, one file and less than 1000 lines.
 
-download a dll @ : (coming soon, will upload to unknowncheats) (or you can build yourself :P)
+download a dll @ : no where, build it yourself!
 
 ## features
 * gui
@@ -24,6 +24,8 @@ download a dll @ : (coming soon, will upload to unknowncheats) (or you can build
 * noscope crosshair
 * recoil crosshair
 * auto accept
+* configurable triggerbot
+
 ## config
 a basic boolean-only config system is included using bitwise operations. the save & load buttons operate on a config file "Counter-Strike: Global Offensive\singlefile.cfg", where the config is stored as a number.
 ## code style
