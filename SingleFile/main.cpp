@@ -9,6 +9,7 @@
 void* client_dll = nullptr;
 void* engine_dll = nullptr;
 int CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
+#define TriggerBotKEY VK_MBUTTON // 0 for no key or a vk code (ex. ALT = VK_LMENU, see https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
 typedef enum MH_STATUS
 {
 	MH_UNKNOWN = -1,
@@ -108,6 +109,10 @@ enum {
 	AUTO_ACCEPT = 8192,
 	TRIGGERBOT = 16384,
 	VELOCITY = 32768,
+	RADAR = 65536,
+	THIRDPERSON = 131702,
+	TPD = 262144,
+	GAMEKEYBOARD = 524288,
 };
 class vec3 {
 public:
@@ -263,10 +268,19 @@ public:
 		return *(bool*)(this + 0x3928);
 	}
 	__forceinline bool& Spotted() {
-		return *(bool*)(this + 0x0);
+		return *(bool*)(this + 0x93D);
 	}
 	__forceinline int& ObserverMode() {
-		return *(int*)(this + 0x0);
+		return *(int*)(this + 0x3378);
+	}
+	__forceinline float& FlashDuration() {
+		return *(float*)(this + 0xA420);
+	}
+	__forceinline int Ammo() {
+		return *(int*)(this + 0x3264);
+	}
+	__forceinline int CrosshairTarget() {
+		return *(int*)(this + 0xB3E4);
 	}
 };
 class CGlobalVarsBase {
@@ -321,6 +335,9 @@ public:
 	}
 	__forceinline const char* GetVersionString() {
 		return v<const char* (__thiscall*)(void*)>(this, 105)(this);
+	}
+	__forceinline int GetPlayerIndex(int m_nIndex) {
+		return v<int(__thiscall*)(void*, int)>(this, 9)(this, m_nIndex);
 	}
 };
 class IGameEvent {
@@ -453,7 +470,7 @@ namespace menu {
 		interfaces.surface->DrawFilledRect(x_pos - 5, rpos + 26, 1, vheight - 60 + 24);
 		y_pos = rpos + 25;
 	}
-	void checkbox(const wchar_t* name, unsigned int* config, int option) {
+	void checkbox(const wchar_t* name, unsigned int* config, unsigned int option) {
 		interfaces.surface->SetColor(27, 27, 27, 255);
 		interfaces.surface->DrawRectOutline(x_pos, y_pos, 12, 12);
 		interfaces.surface->SetColor(37, 37, 38, 255);
@@ -509,11 +526,15 @@ void RenderMenu() {
 	menu::checkbox(L"noscope crosshair", &config, NOSCOPE_CROSSHAIR);
 	menu::checkbox(L"recoil crosshair", &config, RECOIL_CROSSHAIR);
 	menu::checkbox(L"auto accept", &config, AUTO_ACCEPT);
-
+	
 	menu::column(184);
 
 	menu::checkbox(L"triggerbot", &config, TRIGGERBOT);
 	menu::checkbox(L"velocity", &config, VELOCITY);
+	menu::checkbox(L"radar", &config, RADAR);
+	menu::checkbox(L"thirdperson", &config, THIRDPERSON);
+	menu::checkbox(L"thirdperson on dead", &config, TPD);
+	menu::checkbox(L"disable keyboard in menu", &config, GAMEKEYBOARD);
 
 	if (menu::button(L"load", {60, 270}, {195, 30}))
 		load();
@@ -726,6 +747,8 @@ void players() {
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
 			interfaces.surface->DrawFilledRect(box.x - 9, box.y + box.h - ((box.h * (entity->GetHealth() / 100.f))), 3, (box.h * entity->GetHealth() / 100.f) + (entity->GetHealth() == 100 ? 0 : 1));
 		}
+		if (config & RADAR)
+			entity->Spotted() = true;
 	}
 }
 void cvars() {
@@ -765,7 +788,17 @@ void speclist() {
 	b = 0;
 }
 void triggerbot(CUserCmd* cmd) {
-	// hey
+	if (!(config & TRIGGERBOT))
+		return;
+	CBaseEntity* lp = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
+	if (!lp || (lp->GetHealth() < 1) || !lp->CrosshairTarget())
+		return;
+	CBaseEntity* target = interfaces.entitylist->GetEntity((lp->CrosshairTarget()));
+	if (TriggerBotKEY && !GetAsyncKeyState(TriggerBotKEY))
+		return;
+	if (!target->GetHealth() || lp->FlashDuration() > 0.1f || !lp->GetWeapon()->Ammo() || lp->GetWeapon()->WeaponNextAttack() > interfaces.globals->m_flCurrentTime || (!lp->IsScoped() && lp->GetWeapon()->GetWeaponType() == 5) || lp->GetTeamNumber() == target->GetTeamNumber()) // dumbass "hitchance" calculation but it's close enough ig
+		return;
+	cmd->m_nButtons |= IN_ATTACK;
 }
 bool __stdcall _CreateMove(float m_flInputSampleTime, CUserCmd* cmd) {
 	bool SetViewAngles = CreateMoveOriginal(m_flInputSampleTime, cmd);
@@ -775,6 +808,7 @@ bool __stdcall _CreateMove(float m_flInputSampleTime, CUserCmd* cmd) {
 	}
 	bhop(cmd);
 	autopistol(cmd);
+	triggerbot(cmd);
 	return SetViewAngles;
 }
 void __stdcall _EmitSound(void* filter, int entityIndex, int channel, const char* soundEntry, unsigned int soundEntryHash, const char* sample, float volume, int seed, int soundLevel, int flags, int pitch, const vec3& origin, const vec3& direction, void* utlVecOrigins, bool updatePositions, float soundtime, int speakerentity, void* soundParams) { // thank you danielkrupinski/Osiris for these arguments
@@ -800,8 +834,10 @@ void __stdcall _PaintTraverse(unsigned int panel, bool m_bForceRepaint, bool m_b
 		if (menu_open)
 			RenderMenu();
 	}
-	if (drawing == fnv::hash("FocusOverlayPanel"))
+	if (drawing == fnv::hash("FocusOverlayPanel")) {
 		interfaces.panel->SetInputMouseState(panel, menu_open);
+		interfaces.panel->SetInputKeyboardState(panel, menu_open && (config & GAMEKEYBOARD));
+	}
 	return PaintTraverseOriginal(interfaces.panel, panel, m_bForceRepaint, m_bAllowRepaint);
 }
 
@@ -858,6 +894,6 @@ BOOL APIENTRY DllMain(HMODULE m_hModule, DWORD m_dwReason, LPVOID m_pReserved) {
 		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)Init, m_hModule, 0, NULL);
 	return TRUE;
 }
-int GetLineCount() { // must be at bottom obviously
+int GetLineCount() { // must be at bottom obviously :P
 	return (__LINE__ + 1);
 }
