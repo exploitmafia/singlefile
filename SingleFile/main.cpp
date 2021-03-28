@@ -887,6 +887,10 @@ void __stdcall Init (HMODULE mod) {
 	LoadHooks();
 	SetupFonts();
 	printf("finished loading.\n");
+	while (!GetAsyncKeyState(VK_END))
+		Sleep(500);
+	MH_DisableHook(MH_ALL_HOOKS);
+	MH_Uninitialize();
 }
 BOOL APIENTRY DllMain(HMODULE m_hModule, DWORD m_dwReason, LPVOID m_pReserved) {
 	DisableThreadLibraryCalls(m_hModule);
