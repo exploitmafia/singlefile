@@ -93,19 +93,21 @@ unsigned int config;
 bool menu_open = true;
 enum {
 	BHOP = 1,
-	AUTOPISTOL = 2, 
+	AUTOPISTOL = 2,
 	HITSOUND = 4,
 	BOX_ESP = 8,
 	NAME_ESP = 16,
-	HEALTH_BAR = 32, 
+	HEALTH_BAR = 32,
 	ESP_TEAM = 64,
 	SPECTATOR_LIST = 128,
-	DISABLE_POSTPROCESS = 256, 
+	DISABLE_POSTPROCESS = 256,
 	ESP_DORMANT = 512,
 	NOSCOPE_CROSSHAIR = 1024,
 	RECOIL_CROSSHAIR = 2048,
 	DEAD_ESP = 4096,
 	AUTO_ACCEPT = 8192,
+	TRIGGERBOT = 16384,
+	VELOCITY = 32768,
 };
 class vec3 {
 public:
@@ -418,7 +420,7 @@ void save() {
 }
 namespace menu {
 	unsigned long font, esp;
-	int x_pos = 0, y_pos = 0;
+	int x_pos = 0, y_pos = 0, vheight = 0, rpos = 0;
 	void window(const wchar_t* name, vec2 pos, vec2 size) {
 		interfaces.surface->SetColor(23, 23, 30, 255);
 		interfaces.surface->DrawRectOutline(pos.x - 1, pos.y - 1, size.x + 2, size.y + 2);
@@ -442,6 +444,14 @@ namespace menu {
 		interfaces.surface->DrawText(name, wcslen(name));
 		x_pos = pos.x + 10;
 		y_pos = pos.y + 25;
+		rpos = pos.x;
+		vheight = size.y;
+	}
+	void column(int x) {
+		x_pos += 20 + x;
+		interfaces.surface->SetColor(17, 17, 17, 255);
+		interfaces.surface->DrawFilledRect(x_pos - 5, rpos + 26, 1, vheight - 60 + 24);
+		y_pos = rpos + 25;
 	}
 	void checkbox(const wchar_t* name, unsigned int* config, int option) {
 		interfaces.surface->SetColor(27, 27, 27, 255);
@@ -485,7 +495,7 @@ void SetupFonts() {
 	interfaces.surface->SetFontGlyphs(menu::esp, "Tahoma", 12, 600, 0x080); // dropshadow = 0x080, antialias = 0x010, outline = 0x200
 }
 void RenderMenu() {
-	menu::window(L"singlefile csgo internal", { 50, 50 }, { 200, 260 });
+	menu::window(L"singlefile csgo internal", { 50, 50 }, { 420, 260 });
 	menu::checkbox(L"bhop", &config, BHOP); 
 	menu::checkbox(L"auto pistol", &config, AUTOPISTOL);
 	menu::checkbox(L"hitsound", &config, HITSOUND);
@@ -499,9 +509,15 @@ void RenderMenu() {
 	menu::checkbox(L"noscope crosshair", &config, NOSCOPE_CROSSHAIR);
 	menu::checkbox(L"recoil crosshair", &config, RECOIL_CROSSHAIR);
 	menu::checkbox(L"auto accept", &config, AUTO_ACCEPT);
-	if (menu::button(L"load", {60, 270}, {85, 30}))
+
+	menu::column(184);
+
+	menu::checkbox(L"triggerbot", &config, TRIGGERBOT);
+	menu::checkbox(L"velocity", &config, VELOCITY);
+
+	if (menu::button(L"load", {60, 270}, {195, 30}))
 		load();
-	if (menu::button(L"save", {155, 270}, {85, 30}))
+	if (menu::button(L"save", {265, 270}, {195, 30}))
 		save();
 }
 
