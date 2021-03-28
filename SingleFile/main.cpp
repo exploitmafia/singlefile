@@ -90,7 +90,7 @@ __forceinline I v(void* iface, unsigned int index) { return (I)((*(unsigned int*
 using matrix_t = float[3][4];
 using matrix4x4_t = float[4][4];
 // config system
-unsigned int config;
+unsigned long long config;
 bool menu_open = true;
 enum {
 	BHOP = 1,
@@ -108,11 +108,9 @@ enum {
 	DEAD_ESP = 4096,
 	AUTO_ACCEPT = 8192,
 	TRIGGERBOT = 16384,
-	VELOCITY = 32768,
-	RADAR = 65536,
-	THIRDPERSON = 131702,
-	TPD = 262144,
-	GAMEKEYBOARD = 524288,
+	GAMEKEYBOARD = 32768,
+	RADAR = 65536,	
+	BROKEN = 131702, // do not assign this to anything
 };
 class vec3 {
 public:
@@ -470,7 +468,7 @@ namespace menu {
 		interfaces.surface->DrawFilledRect(x_pos - 5, rpos + 26, 1, vheight - 60 + 24);
 		y_pos = rpos + 25;
 	}
-	void checkbox(const wchar_t* name, unsigned int* config, unsigned int option) {
+	void checkbox(const wchar_t* name, unsigned long long* config, unsigned long long option) {
 		interfaces.surface->SetColor(27, 27, 27, 255);
 		interfaces.surface->DrawRectOutline(x_pos, y_pos, 12, 12);
 		interfaces.surface->SetColor(37, 37, 38, 255);
@@ -530,10 +528,7 @@ void RenderMenu() {
 	menu::column(184);
 
 	menu::checkbox(L"triggerbot", &config, TRIGGERBOT);
-	menu::checkbox(L"velocity", &config, VELOCITY);
 	menu::checkbox(L"radar", &config, RADAR);
-	menu::checkbox(L"thirdperson", &config, THIRDPERSON);
-	menu::checkbox(L"thirdperson on dead", &config, TPD);
 	menu::checkbox(L"disable keyboard in menu", &config, GAMEKEYBOARD);
 
 	if (menu::button(L"load", {60, 270}, {195, 30}))
@@ -568,6 +563,7 @@ bool(__stdcall* CreateMoveOriginal)(float, CUserCmd*);
 void(__thiscall* PaintTraverseOriginal)(IPanel*, unsigned int, bool, bool);
 bool(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
 void(__stdcall* EmitSoundOriginal)(void*, int, int, const char*, unsigned int, const char*, float, int, int, int, int, const vec3&, const vec3&, void*, bool, float, int, void*);
+int(__fastcall* SvCheatsGetIntOriginal)(void*);
 LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (uMsg == WM_KEYDOWN) {
@@ -756,6 +752,10 @@ void cvars() {
 	interfaces.cvar->FindVar("mat_postprocess_enable")->SetValue(config & DISABLE_POSTPROCESS ? 0 : 1); 
 	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config & RECOIL_CROSSHAIR ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
 	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config & NOSCOPE_CROSSHAIR) && !localplayer->IsScoped()) ? 2 : 0);
+	if (localplayer->GetHealth() < 0 && localplayer->GetObserverTarget())
+		localplayer->ObserverMode() = 5;
+	else
+		localplayer->ObserverMode() = 4;
 }
 int b = 0;
 void speclist() {
@@ -840,13 +840,12 @@ void __stdcall _PaintTraverse(unsigned int panel, bool m_bForceRepaint, bool m_b
 	}
 	return PaintTraverseOriginal(interfaces.panel, panel, m_bForceRepaint, m_bAllowRepaint);
 }
-
 void LoadHooks() {
 	MH_Initialize();
-	void* CreateMoveAddress = (void*)v<unsigned int>(interfaces.client_mode, 24);
-	void* PaintTraverseAddress = (void*)v<unsigned int>(interfaces.panel, 41);
-	void* FireGameEventsAddress = (void*)v<unsigned int>(interfaces.events, 9);
-	void* EmitSoundAddress = (void*)v<unsigned int>(interfaces.sound, 5);
+	void* CreateMoveAddress = v<void*>(interfaces.client_mode, 24);
+	void* PaintTraverseAddress = v<void*>(interfaces.panel, 41);
+	void* FireGameEventsAddress = v<void*>(interfaces.events, 9);
+	void* EmitSoundAddress = v<void*>(interfaces.sound, 5);
 	MH_CreateHook(CreateMoveAddress, &_CreateMove, (void**)&CreateMoveOriginal);
 	MH_CreateHook(PaintTraverseAddress, &_PaintTraverse, (void**)&PaintTraverseOriginal);
 	MH_CreateHook(FireGameEventsAddress, &_GameEvents, (void**)&GameEventsOriginal);
