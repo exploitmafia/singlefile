@@ -32,15 +32,9 @@ extern "C" {
 	MH_STATUS WINAPI MH_Initialize(VOID);
 	MH_STATUS WINAPI MH_Uninitialize(VOID);
 	MH_STATUS WINAPI MH_CreateHook(LPVOID pTarget, LPVOID pDetour, LPVOID* ppOriginal);
-	MH_STATUS WINAPI MH_CreateHookApi(LPCWSTR pszModule, LPCSTR pszProcName, LPVOID pDetour, LPVOID* ppOriginal);
-	MH_STATUS WINAPI MH_CreateHookApiEx(LPCWSTR pszModule, LPCSTR pszProcName, LPVOID pDetour, LPVOID* ppOriginal, LPVOID* ppTarget);
 	MH_STATUS WINAPI MH_RemoveHook(LPVOID pTarget);
 	MH_STATUS WINAPI MH_EnableHook(LPVOID pTarget);
 	MH_STATUS WINAPI MH_DisableHook(LPVOID pTarget);
-	MH_STATUS WINAPI MH_QueueEnableHook(LPVOID pTarget);
-	MH_STATUS WINAPI MH_QueueDisableHook(LPVOID pTarget);
-	MH_STATUS WINAPI MH_ApplyQueued(VOID);
-	const char* WINAPI MH_StatusToString(MH_STATUS status); 
 }
 
 unsigned char* PatternScan(void* m_pModule, const char* m_szSignature) {
@@ -48,7 +42,7 @@ unsigned char* PatternScan(void* m_pModule, const char* m_szSignature) {
 	unsigned char* first_match = 0x0;
 	PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)m_pModule;
 	PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((char*)m_pModule + dos->e_lfanew);
-	for (unsigned char* current = (unsigned char*)m_pModule; current < (uint8_t*)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
+	for (unsigned char* current = (unsigned char*)m_pModule; current < (unsigned char*)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
 		if (*(unsigned char*)pat == '\?' || *(unsigned char*)current == GET_BYTE(pat)) {
 			if (!*pat)
 				return first_match;
@@ -95,23 +89,23 @@ __forceinline I v(void* iface, unsigned int index) { return (I)((*(unsigned int*
 using matrix_t = float[3][4];
 using matrix4x4_t = float[4][4];
 // config system
-int config;
+unsigned int config;
 bool menu_open = true;
 enum {
-	BHOP = 2,
-	AUTOPISTOL = 4, 
-	HITSOUND = 8,
-	BOX_ESP = 16,
-	NAME_ESP = 32,
-	HEALTH_BAR = 64, 
-	ESP_TEAM = 128,
-	SPECTATOR_LIST = 256,
-	DISABLE_POSTPROCESS = 512, 
-	ESP_DORMANT = 1024,
-	NOSCOPE_CROSSHAIR = 2048,
-	RECOIL_CROSSHAIR = 4096,
-	DEAD_ESP = 8192,
-	AUTO_ACCEPT = 16384,
+	BHOP = 1,
+	AUTOPISTOL = 2, 
+	HITSOUND = 4,
+	BOX_ESP = 8,
+	NAME_ESP = 16,
+	HEALTH_BAR = 32, 
+	ESP_TEAM = 64,
+	SPECTATOR_LIST = 128,
+	DISABLE_POSTPROCESS = 256, 
+	ESP_DORMANT = 512,
+	NOSCOPE_CROSSHAIR = 1024,
+	RECOIL_CROSSHAIR = 2048,
+	DEAD_ESP = 4096,
+	AUTO_ACCEPT = 8192,
 };
 class vec3 {
 public:
@@ -131,9 +125,10 @@ public:
 	vec3 operator/(const vec3& in) { return vec3(x / in.x, y / in.y, z / in.z); }
 	float dot(float* a) { return x * a[0] + y * a[1] + z * a[2]; }
 	float lengthsqr() { return (x * x + y * y + z * z); }
+	float length2d() { return sqrt(x * x + y * y); }
 	void clear() { x = y = z = 0.f; }
 };
-struct splayerinfo {
+struct SPlayerInfo {
 	unsigned long long m_ullVersion;
 	union {
 		unsigned long long m_ullXUID;
@@ -265,6 +260,12 @@ public:
 	__forceinline bool& IsScoped() {
 		return *(bool*)(this + 0x3928);
 	}
+	__forceinline bool& Spotted() {
+		return *(bool*)(this + 0x0);
+	}
+	__forceinline int& ObserverMode() {
+		return *(int*)(this + 0x0);
+	}
 };
 class CGlobalVarsBase {
 public:
@@ -301,8 +302,8 @@ public:
 	__forceinline void GetScreenSize(uint32_t& w, uint32_t& h) {
 		return v<void(__thiscall*)(void*, uint32_t&, uint32_t&)>(this, 5)(this, w, h);
 	}
-	__forceinline bool GetPlayerInfo(int idx, splayerinfo* info) {
-		return v<bool(__thiscall*)(void*, int, splayerinfo*)>(this, 8)(this, idx, info);
+	__forceinline bool GetPlayerInfo(int idx, SPlayerInfo* info) {
+		return v<bool(__thiscall*)(void*, int, SPlayerInfo*)>(this, 8)(this, idx, info);
 	}
 	__forceinline unsigned int GetLocalPlayer() {
 		return v<unsigned int(__thiscall*)(void*)>(this, 12)(this);
@@ -403,10 +404,11 @@ bool IsMouseInRegion(int x, int y, int w, int h) {
 }
 #include <iostream>
 #include <fstream>
-
 void load() { // not proud of using cpp here, but line count matters...
 	std::ifstream ss;
-	ss.open("singlefile.cfg");;
+	ss.open("singlefile.cfg");
+	if (!ss.good())
+		return;
 	ss >> config;
 }
 void save() {
@@ -441,7 +443,7 @@ namespace menu {
 		x_pos = pos.x + 10;
 		y_pos = pos.y + 25;
 	}
-	void checkbox(const wchar_t* name, int* config, int option) {
+	void checkbox(const wchar_t* name, unsigned int* config, int option) {
 		interfaces.surface->SetColor(27, 27, 27, 255);
 		interfaces.surface->DrawRectOutline(x_pos, y_pos, 12, 12);
 		interfaces.surface->SetColor(37, 37, 38, 255);
@@ -454,7 +456,7 @@ namespace menu {
 		interfaces.surface->SetTextPosition(x_pos + 15, y_pos);
 		interfaces.surface->SetTextFont(menu::font);
 		interfaces.surface->DrawText(name, wcslen(name));
-		if (IsMouseInRegion(x_pos, y_pos, 12, 12) && GetAsyncKeyState(VK_LBUTTON) & 1)
+		if (IsMouseInRegion(x_pos, y_pos, 12, 12) && GetAsyncKeyState(VK_LBUTTON) & 1 && GetAsyncKeyState(VK_LBUTTON))
 			*config ^= option;
 		y_pos += 15;
 	}
@@ -471,8 +473,7 @@ namespace menu {
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition(pos.x + (size.x / 2) - u / 2, pos.y + (size.y / 2) - i / 2);
 		interfaces.surface->DrawText(name, wcslen(name));
-		//interfaces.surface->SetTextPosition()
-		if (IsMouseInRegion(pos.x, pos.y, size.x, size.y) && GetAsyncKeyState(VK_LBUTTON) & 1)
+		if (IsMouseInRegion(pos.x, pos.y, size.x, size.y) && GetAsyncKeyState(VK_LBUTTON) & 1 && GetAsyncKeyState(VK_LBUTTON))
 			return true;
 		return false;
 	}
@@ -577,8 +578,7 @@ void autoaccept(const char* sound) {
 	}
 }
 template <typename T>
-static T RelativeToAbsolute(unsigned int m_pAddress) 
-{
+static T RelativeToAbsolute(unsigned int m_pAddress)  {
 	return (T)(m_pAddress + 0x4 + *(int*)(m_pAddress));
 }
 struct bbox {
@@ -690,7 +690,7 @@ void players() {
 			interfaces.surface->SetTextColor(255, 255, 255, 255);
 			interfaces.surface->SetTextFont(menu::font);
 			unsigned int o, p;
-			splayerinfo plr;
+			SPlayerInfo plr;
 			interfaces.engine->GetPlayerInfo(i, &plr);
 			wchar_t wname[128];
 			if (MultiByteToWideChar(65001, 0, plr.m_szName, -1, wname, 128)) {
@@ -732,7 +732,7 @@ void speclist() {
 				continue;
 			if (entity->GetObserverTarget() != localplayer)
 				continue;
-			splayerinfo player;
+			SPlayerInfo player;
 			interfaces.engine->GetPlayerInfo(i, &player);
 			interfaces.surface->SetTextColor(255, 255, 255, 255);
 			interfaces.surface->SetTextFont(menu::font);
@@ -747,6 +747,9 @@ void speclist() {
 		}
 	}
 	b = 0;
+}
+void triggerbot(CUserCmd* cmd) {
+	// hey
 }
 bool __stdcall _CreateMove(float m_flInputSampleTime, CUserCmd* cmd) {
 	bool SetViewAngles = CreateMoveOriginal(m_flInputSampleTime, cmd);
@@ -765,7 +768,7 @@ void __stdcall _EmitSound(void* filter, int entityIndex, int channel, const char
 bool __stdcall _GameEvents(IGameEvent* event) {
 	if (config & HITSOUND) {
 		if (strstr(event->GetName(), "player_hurt")) {
-			splayerinfo player;
+			SPlayerInfo player;
 			interfaces.engine->GetPlayerInfo(interfaces.engine->GetLocalPlayer(), &player);
 			if (event->GetInt("attacker") == player.m_nUserID)
 				interfaces.engine->ClientCmdUnrestricted("play buttons/arena_switch_press_02");
@@ -781,31 +784,22 @@ void __stdcall _PaintTraverse(unsigned int panel, bool m_bForceRepaint, bool m_b
 		if (menu_open)
 			RenderMenu();
 	}
-	if (drawing == fnv::hash("FocusOverlayPanel")) {
+	if (drawing == fnv::hash("FocusOverlayPanel"))
 		interfaces.panel->SetInputMouseState(panel, menu_open);
-	}
 	return PaintTraverseOriginal(interfaces.panel, panel, m_bForceRepaint, m_bAllowRepaint);
-}
-unsigned int GetVirtualAddress(void* m_pClass, unsigned m_nIndex) {
-	return (unsigned int)((*(int**)(m_pClass))[m_nIndex]);
 }
 
 void LoadHooks() {
 	MH_Initialize();
-	void* CreateMoveAddress = (void*)GetVirtualAddress(interfaces.client_mode, 24);
-	void* PaintTraverseAddress = (void*)GetVirtualAddress(interfaces.panel, 41);
-	void* FireGameEventsAddress = (void*)GetVirtualAddress(interfaces.events, 9);
-	void* EmitSoundAddress = (void*)GetVirtualAddress(interfaces.sound, 5);
+	void* CreateMoveAddress = (void*)v<unsigned int>(interfaces.client_mode, 24);
+	void* PaintTraverseAddress = (void*)v<unsigned int>(interfaces.panel, 41);
+	void* FireGameEventsAddress = (void*)v<unsigned int>(interfaces.events, 9);
+	void* EmitSoundAddress = (void*)v<unsigned int>(interfaces.sound, 5);
 	MH_CreateHook(CreateMoveAddress, &_CreateMove, (void**)&CreateMoveOriginal);
-	printf("hooked createmove (0x%p) -> (0x%p)\n", CreateMoveAddress, _CreateMove);
 	MH_CreateHook(PaintTraverseAddress, &_PaintTraverse, (void**)&PaintTraverseOriginal);
-	printf("hooked painttraverse (0x%p) -> (0x%p)\n", PaintTraverseAddress, _PaintTraverse);
 	MH_CreateHook(FireGameEventsAddress, &_GameEvents, (void**)&GameEventsOriginal);
-	printf("hooked firegameevents (0x%p) -> (0x%p)\n", FireGameEventsAddress, _GameEvents);
 	MH_CreateHook(EmitSoundAddress, &_EmitSound, (void**)&EmitSoundOriginal);
-	printf("hooked emitsound (0x%p) -> (0x%p)\n", EmitSoundAddress, _EmitSound);
 	MH_EnableHook(MH_ALL_HOOKS);
-	printf("hooks enabled.\n");
 }
 template <class T>
 T CreateInterface(void* m_pModule, const char* m_szInterface) {
@@ -827,7 +821,7 @@ void __stdcall Init (HMODULE mod) {
 	void* vgui2_dll = GetModuleHandleA("vgui2.dll");
 	void* vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
-	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.2"))
+	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.5"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are expierencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
