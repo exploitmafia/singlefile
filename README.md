@@ -25,6 +25,7 @@ download a dll @ : no where, build it yourself!
 * recoil crosshair
 * auto accept
 * configurable triggerbot
+* radar
 
 ## config
 a basic boolean-only config system is included using bitwise operations. the save & load buttons operate on a config file "Counter-Strike: Global Offensive\singlefile.cfg", where the config is stored as a number.
