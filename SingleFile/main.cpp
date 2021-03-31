@@ -751,10 +751,6 @@ void cvars() {
 	interfaces.cvar->FindVar("mat_postprocess_enable")->SetValue(config.visuals.m_bDisablePostProcess ? 0 : 1); 
 	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config.misc.m_bRecoilCrosshair ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
 	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config.misc.m_bNoScopeCrosshair) && !localplayer->IsScoped()) ? 2 : 0);
-	if (localplayer->GetHealth() < 0 && localplayer->GetObserverTarget())
-		localplayer->ObserverMode() = 5;
-	else
-		localplayer->ObserverMode() = 4;
 }
 int b = 0;
 void speclist() {
