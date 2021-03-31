@@ -423,8 +423,6 @@ int* Cursor() {
 bool IsMouseInRegion(int x, int y, int w, int h) {
 	return Cursor()[0] > x && Cursor()[1] > y && Cursor()[0] < w + x && Cursor()[1] < h + y;
 }
-#include <iostream>
-#include <fstream>
 void load() { // not proud of using cpp here, but line count matters...
 	FILE* cfg = fopen("singlefile.cfg", "r");
 	fread(&config, sizeof(config), 1, cfg);
