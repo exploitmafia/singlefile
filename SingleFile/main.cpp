@@ -90,28 +90,32 @@ __forceinline I v(void* iface, unsigned int index) { return (I)((*(unsigned int*
 using matrix_t = float[3][4];
 using matrix4x4_t = float[4][4];
 // config system
-unsigned long long config;
 bool menu_open = true;
-enum {
-	BHOP = 1,
-	AUTOPISTOL = 2,
-	HITSOUND = 4,
-	BOX_ESP = 8,
-	NAME_ESP = 16,
-	HEALTH_BAR = 32,
-	ESP_TEAM = 64,
-	SPECTATOR_LIST = 128,
-	DISABLE_POSTPROCESS = 256,
-	ESP_DORMANT = 512,
-	NOSCOPE_CROSSHAIR = 1024,
-	RECOIL_CROSSHAIR = 2048,
-	DEAD_ESP = 4096,
-	AUTO_ACCEPT = 8192,
-	TRIGGERBOT = 16384,
-	GAMEKEYBOARD = 32768,
-	RADAR = 65536,	
-	BROKEN = 131702, // do not assign this to anything
-};
+struct sconfig {
+	struct saim {
+		bool m_bTriggerbot;
+		bool m_bAutoPistol;
+	}aimbot;
+	struct svisuals {
+		bool m_bBoxESP;
+		bool m_bNameESP;
+		bool m_bHealthBar;
+		bool m_bTargetTeam;
+		bool m_bDormanyCheck;
+		bool m_bOnlyOnDead;
+		bool m_bRadar;
+		bool m_bDisablePostProcess;
+	}visuals;
+	struct smisc {
+		bool m_bBhop;
+		bool m_bHitSound;
+		bool m_bNoScopeCrosshair;
+		bool m_bRecoilCrosshair;
+		bool m_bAutoAccept;
+		bool m_bGameKeyboard;
+		bool m_bSpectatorList;
+	}misc;
+}config;
 class vec3 {
 public:
 	float x, y, z;
@@ -422,16 +426,14 @@ bool IsMouseInRegion(int x, int y, int w, int h) {
 #include <iostream>
 #include <fstream>
 void load() { // not proud of using cpp here, but line count matters...
-	std::ifstream ss;
-	ss.open("singlefile.cfg");
-	if (!ss.good())
-		return;
-	ss >> config;
+	FILE* cfg = fopen("singlefile.cfg", "r");
+	fread(&config, sizeof(config), 1, cfg);
+	fclose(cfg);
 }
 void save() {
-	std::ofstream ss;
-	ss.open("singlefile.cfg");
-	ss << config;
+	FILE* cfg = fopen("singlefile.cfg", "w");
+	fwrite(&config, sizeof(config), 1, cfg);
+	fclose(cfg);
 }
 namespace menu {
 	unsigned long font, esp;
@@ -468,12 +470,12 @@ namespace menu {
 		interfaces.surface->DrawFilledRect(x_pos - 5, rpos + 26, 1, vheight - 60 + 24);
 		y_pos = rpos + 25;
 	}
-	void checkbox(const wchar_t* name, unsigned long long* config, unsigned long long option) {
+	void checkbox(const wchar_t* name, bool* option) {
 		interfaces.surface->SetColor(27, 27, 27, 255);
 		interfaces.surface->DrawRectOutline(x_pos, y_pos, 12, 12);
 		interfaces.surface->SetColor(37, 37, 38, 255);
 		interfaces.surface->DrawFilledRect(x_pos + 1, y_pos + 1, 10, 10);
-		if (*config & option) {
+		if (*option) {
 			interfaces.surface->SetColor(25, 100, 255, 255);
 			interfaces.surface->DrawFilledRect(x_pos + 1, y_pos + 1, 10, 10);
 		}
@@ -482,7 +484,7 @@ namespace menu {
 		interfaces.surface->SetTextFont(menu::font);
 		interfaces.surface->DrawText(name, wcslen(name));
 		if (IsMouseInRegion(x_pos, y_pos, 12, 12) && GetAsyncKeyState(VK_LBUTTON) & 1 && GetAsyncKeyState(VK_LBUTTON))
-			*config ^= option;
+			*option = !(*option);
 		y_pos += 15;
 	}
 	bool button(const wchar_t* name, vec2 pos, vec2 size) {
@@ -511,25 +513,25 @@ void SetupFonts() {
 }
 void RenderMenu() {
 	menu::window(L"singlefile csgo internal", { 50, 50 }, { 420, 260 });
-	menu::checkbox(L"bhop", &config, BHOP); 
-	menu::checkbox(L"auto pistol", &config, AUTOPISTOL);
-	menu::checkbox(L"hitsound", &config, HITSOUND);
-	menu::checkbox(L"box esp", &config, BOX_ESP);
-	menu::checkbox(L"name esp", &config, NAME_ESP);
-	menu::checkbox(L"health bar", &config, HEALTH_BAR);
-	menu::checkbox(L"dormant esp", &config, ESP_DORMANT);
-	menu::checkbox(L"team esp", &config, ESP_TEAM);
-	menu::checkbox(L"spectator list", &config, SPECTATOR_LIST);
-	menu::checkbox(L"disable post process", &config, DISABLE_POSTPROCESS);
-	menu::checkbox(L"noscope crosshair", &config, NOSCOPE_CROSSHAIR);
-	menu::checkbox(L"recoil crosshair", &config, RECOIL_CROSSHAIR);
-	menu::checkbox(L"auto accept", &config, AUTO_ACCEPT);
+	menu::checkbox(L"bhop", &config.misc.m_bBhop); 
+	menu::checkbox(L"auto pistol", &config.aimbot.m_bAutoPistol);
+	menu::checkbox(L"hitsound", &config.misc.m_bHitSound);
+	menu::checkbox(L"box esp", &config.visuals.m_bBoxESP);
+	menu::checkbox(L"name esp", &config.visuals.m_bNameESP);
+	menu::checkbox(L"health bar", &config.visuals.m_bHealthBar);
+	menu::checkbox(L"dormant esp", &config.visuals.m_bDormanyCheck);
+	menu::checkbox(L"team esp", &config.visuals.m_bTargetTeam);
+	menu::checkbox(L"spectator list", &config.misc.m_bSpectatorList);
+	menu::checkbox(L"disable post process", &config.visuals.m_bDisablePostProcess);
+	menu::checkbox(L"noscope crosshair", &config.misc.m_bNoScopeCrosshair);
+	menu::checkbox(L"recoil crosshair", &config.misc.m_bRecoilCrosshair);
+	menu::checkbox(L"auto accept", &config.misc.m_bAutoAccept);
 	
 	menu::column(184);
 
-	menu::checkbox(L"triggerbot", &config, TRIGGERBOT);
-	menu::checkbox(L"radar", &config, RADAR);
-	menu::checkbox(L"disable keyboard in menu", &config, GAMEKEYBOARD);
+	menu::checkbox(L"triggerbot", &config.aimbot.m_bTriggerbot);
+	menu::checkbox(L"radar", &config.visuals.m_bRadar);
+	menu::checkbox(L"disable keyboard in menu", &config.misc.m_bGameKeyboard);
 
 	if (menu::button(L"load", {60, 270}, {195, 30}))
 		load();
@@ -581,7 +583,7 @@ enum {
 	IN_COUNT = 1 << 26,
 };
 void bhop(CUserCmd* cmd) {
-	if (config & BHOP) {
+	if (config.misc.m_bBhop) {
 		CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
 		if (localplayer->GetHealth() == 0)
 			return;
@@ -593,7 +595,7 @@ void bhop(CUserCmd* cmd) {
 	}
 }
 void autopistol(CUserCmd* cmd) {
-	if (config & AUTOPISTOL) {
+	if (config.aimbot.m_bAutoPistol) {
 		CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
 		if (localplayer->GetHealth() == 0)
 			return;
@@ -607,7 +609,8 @@ void autopistol(CUserCmd* cmd) {
 void autoaccept(const char* sound) {
 	if (strstr(sound, "UIPanorama.popup_accept_match_beep")) {
 		static bool(__stdcall * SetLPReady)(const char*) = (decltype(SetLPReady))PatternScan(client_dll, "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12");
-		SetLPReady("");
+		if (config.misc.m_bAutoAccept)
+			SetLPReady("");
 	}
 }
 template <typename T>
@@ -699,27 +702,27 @@ void players() {
 	if (!interfaces.engine->IsInGame())
 		return;
 	CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
-	if (localplayer->GetHealth() > 0 && (config & DEAD_ESP))
+	if (localplayer->GetHealth() > 0 && (config.visuals.m_bOnlyOnDead))
 		return;
 	for (int i = 1; i <= interfaces.engine->GetMaxClients(); i++) {
 		CBaseEntity* entity = interfaces.entitylist->GetEntity(i);
 		if (!entity || entity->GetHealth() == 0 || entity->GetClientClass()->m_nClassID != CCSPlayer)
 			continue;
-		if (!(config & ESP_TEAM) && entity->GetTeamNumber() == localplayer->GetTeamNumber())
+		if (!(config.visuals.m_bTargetTeam) && entity->GetTeamNumber() == localplayer->GetTeamNumber())
 			continue;
-		if (!(config & ESP_DORMANT) && entity->IsDormant())
+		if (!(config.visuals.m_bDormanyCheck) && entity->IsDormant())
 			continue;
 		bbox box;
 		if (!getbbot(entity, box))
 			continue;
-		if (config & BOX_ESP) {
+		if (config.visuals.m_bBoxESP) {
 			interfaces.surface->SetColor(255, 255, 255, 255);
 			interfaces.surface->DrawRectOutline(box.x, box.y, box.w, box.h);
 			interfaces.surface->SetColor(0, 0, 0, 255);
 			interfaces.surface->DrawRectOutline(box.x + 1, box.y + 1, box.w - 2, box.h - 2);
 			interfaces.surface->DrawRectOutline(box.x - 1, box.y - 1, box.w + 2, box.h + 2);
 		}
-		if (config & NAME_ESP) {
+		if (config.visuals.m_bNameESP) {
 			interfaces.surface->SetTextColor(255, 255, 255, 255);
 			interfaces.surface->SetTextFont(menu::font);
 			unsigned int o, p;
@@ -732,7 +735,7 @@ void players() {
 				interfaces.surface->DrawText(wname, wcslen(wname));
 			}
 		}
-		if (config & HEALTH_BAR) {
+		if (config.visuals.m_bHealthBar) {
 			rgba healthclr;
 			if (entity->GetHealth() > 100)
 				healthclr = rgba(0, 255, 0, 255);
@@ -743,15 +746,15 @@ void players() {
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
 			interfaces.surface->DrawFilledRect(box.x - 9, box.y + box.h - ((box.h * (entity->GetHealth() / 100.f))), 3, (box.h * entity->GetHealth() / 100.f) + (entity->GetHealth() == 100 ? 0 : 1));
 		}
-		if (config & RADAR)
+		if (config.visuals.m_bRadar)
 			entity->Spotted() = true;
 	}
 }
 void cvars() {
 	CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
-	interfaces.cvar->FindVar("mat_postprocess_enable")->SetValue(config & DISABLE_POSTPROCESS ? 0 : 1); 
-	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config & RECOIL_CROSSHAIR ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
-	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config & NOSCOPE_CROSSHAIR) && !localplayer->IsScoped()) ? 2 : 0);
+	interfaces.cvar->FindVar("mat_postprocess_enable")->SetValue(config.visuals.m_bDisablePostProcess ? 0 : 1); 
+	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config.misc.m_bRecoilCrosshair ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
+	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config.misc.m_bNoScopeCrosshair) && !localplayer->IsScoped()) ? 2 : 0);
 	if (localplayer->GetHealth() < 0 && localplayer->GetObserverTarget())
 		localplayer->ObserverMode() = 5;
 	else
@@ -764,7 +767,7 @@ void speclist() {
 	CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
 	if (!localplayer)
 		return;
-	if (config & SPECTATOR_LIST) {
+	if (config.misc.m_bSpectatorList) {
 		for (int i = 1; i <= interfaces.engine->GetMaxClients(); i++) {
 			CBaseEntity* entity = interfaces.entitylist->GetEntity(i);
 			if (!entity || entity->GetHealth() > 0 || !entity->GetObserverTarget())
@@ -788,7 +791,7 @@ void speclist() {
 	b = 0;
 }
 void triggerbot(CUserCmd* cmd) {
-	if (!(config & TRIGGERBOT))
+	if (!(config.aimbot.m_bTriggerbot))
 		return;
 	CBaseEntity* lp = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
 	if (!lp || (lp->GetHealth() < 1) || !lp->CrosshairTarget())
@@ -816,7 +819,7 @@ void __stdcall _EmitSound(void* filter, int entityIndex, int channel, const char
 	return EmitSoundOriginal(filter, entityIndex, channel, soundEntry, soundEntryHash, sample, volume, seed, soundLevel, flags, pitch, origin, direction, utlVecOrigins, updatePositions, soundtime, speakerentity, soundParams);
 }
 bool __stdcall _GameEvents(IGameEvent* event) {
-	if (config & HITSOUND) {
+	if (config.misc.m_bHitSound) {
 		if (strstr(event->GetName(), "player_hurt")) {
 			SPlayerInfo player;
 			interfaces.engine->GetPlayerInfo(interfaces.engine->GetLocalPlayer(), &player);
@@ -836,7 +839,7 @@ void __stdcall _PaintTraverse(unsigned int panel, bool m_bForceRepaint, bool m_b
 	}
 	if (drawing == fnv::hash("FocusOverlayPanel")) {
 		interfaces.panel->SetInputMouseState(panel, menu_open);
-		interfaces.panel->SetInputKeyboardState(panel, menu_open && (config & GAMEKEYBOARD));
+		interfaces.panel->SetInputKeyboardState(panel, menu_open && (config.misc.m_bGameKeyboard));
 	}
 	return PaintTraverseOriginal(interfaces.panel, panel, m_bForceRepaint, m_bAllowRepaint);
 }
@@ -863,7 +866,7 @@ void __stdcall Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.1: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.1.1: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", nullptr);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
@@ -872,7 +875,7 @@ void __stdcall Init (HMODULE mod) {
 	void* vgui2_dll = GetModuleHandleA("vgui2.dll");
 	void* vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
-	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.5"))
+	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.6"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are expierencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
