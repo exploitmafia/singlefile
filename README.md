@@ -1,7 +1,6 @@
 # singlefile
-featured cs:go internal hack, one file and less than 1000 lines.
 
-download a dll @ : no where, build it yourself!
+This is a featured CS:GO internal cheat written in less than 1000 lines, and in one C++ file. I encourage you to submit feature suggestions and issues with the cheat!
 
 ## features
 * gui
