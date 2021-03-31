@@ -105,6 +105,7 @@ struct sconfig {
 		bool m_bOnlyOnDead;
 		bool m_bRadar;
 		bool m_bDisablePostProcess;
+		bool m_bRankRevealer;
 	}visuals;
 	struct smisc {
 		bool m_bBhop;
@@ -388,7 +389,25 @@ public:
 		return v<CConvar* (__thiscall*)(void*, const char*)>(this, 15)(this, name);
 	}
 };
-class IClient;
+class CRecvProp;
+class CClientClass {
+public:
+	void*			m_pCreateFunction;
+	void*			m_pCreateEventFunction;
+	char*			m_szNetworkName;
+	CRecvProp*      m_pRecvPointer;
+	CClientClass*	m_pNextPointer;
+	int				m_nClassID;
+};
+class IClient {
+public:
+	__forceinline CClientClass* GetClientClasses() {
+		return v<CClientClass* (__thiscall*)(void*)>(this, 8)(this);
+	}
+	__forceinline bool DispatchUserMessage(int m_nMessageType, int m_nArgument1, int m_nArgument2, void* m_pData) {
+		return v<bool(__thiscall*)(void*, int, int, int, void*)>(this, 38)(this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData);
+	}
+};
 class IClientModeShared;
 class IGameEventManager2;
 class ISound;
@@ -528,6 +547,7 @@ void RenderMenu() {
 	menu::checkbox(L"triggerbot", &config.aimbot.m_bTriggerbot);
 	menu::checkbox(L"radar", &config.visuals.m_bRadar);
 	menu::checkbox(L"disable keyboard in menu", &config.misc.m_bGameKeyboard);
+	menu::checkbox(L"rank revealer", &config.visuals.m_bRankRevealer);
 
 	if (menu::button(L"load", {60, 270}, {195, 30}))
 		load();
@@ -576,6 +596,7 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 enum {
 	IN_ATTACK = 1 << 0,
 	IN_JUMP = 1 << 1,
+	IN_SCORE = 1 << 16,
 	IN_COUNT = 1 << 26,
 };
 void bhop(CUserCmd* cmd) {
@@ -802,9 +823,11 @@ void triggerbot(CUserCmd* cmd) {
 bool __stdcall _CreateMove(float m_flInputSampleTime, CUserCmd* cmd) {
 	bool SetViewAngles = CreateMoveOriginal(m_flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
-		cmd->m_nButtons |= IN_COUNT;
+		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option :P
 		cvars(); // commands that do not to run each tick (i.e don't need usercmd, just dependent on localplayer & being in game)
 	}
+	if (cmd->m_nButtons & IN_SCORE)
+		interfaces.client->DispatchUserMessage(50, 0, 0, nullptr);
 	bhop(cmd);
 	autopistol(cmd);
 	triggerbot(cmd);
@@ -862,7 +885,7 @@ void __stdcall Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.1.1: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.2 beta: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", nullptr);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
