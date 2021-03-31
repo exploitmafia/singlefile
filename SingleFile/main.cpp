@@ -115,6 +115,7 @@ struct sconfig {
 		bool m_bAutoAccept;
 		bool m_bGameKeyboard;
 		bool m_bSpectatorList;
+		bool m_bUseSpam;
 	}misc;
 }config;
 class vec3 {
@@ -548,7 +549,7 @@ void RenderMenu() {
 	menu::checkbox(L"radar", &config.visuals.m_bRadar);
 	menu::checkbox(L"disable keyboard in menu", &config.misc.m_bGameKeyboard);
 	menu::checkbox(L"rank revealer", &config.visuals.m_bRankRevealer);
-
+	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	if (menu::button(L"load", {60, 270}, {195, 30}))
 		load();
 	if (menu::button(L"save", {265, 270}, {195, 30}))
@@ -596,6 +597,7 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 enum {
 	IN_ATTACK = 1 << 0,
 	IN_JUMP = 1 << 1,
+	IN_USE = 1 << 5,
 	IN_SCORE = 1 << 16,
 	IN_COUNT = 1 << 26,
 };
@@ -772,10 +774,6 @@ void cvars() {
 	interfaces.cvar->FindVar("mat_postprocess_enable")->SetValue(config.visuals.m_bDisablePostProcess ? 0 : 1); 
 	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config.misc.m_bRecoilCrosshair ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
 	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config.misc.m_bNoScopeCrosshair) && !localplayer->IsScoped()) ? 2 : 0);
-	if (localplayer->GetHealth() < 0 && localplayer->GetObserverTarget())
-		localplayer->ObserverMode() = 5;
-	else
-		localplayer->ObserverMode() = 4;
 }
 int b = 0;
 void speclist() {
@@ -820,17 +818,26 @@ void triggerbot(CUserCmd* cmd) {
 		return;
 	cmd->m_nButtons |= IN_ATTACK;
 }
+void usespam(CUserCmd* cmd) {
+	if (config.misc.m_bUseSpam && cmd->m_nButtons == IN_USE) {
+		if (cmd->m_nCommandNumber % 2 == 0)
+			cmd->m_nButtons |= IN_USE;
+		else
+			cmd->m_nButtons &= ~IN_USE;
+	}
+}
 bool __stdcall _CreateMove(float m_flInputSampleTime, CUserCmd* cmd) {
 	bool SetViewAngles = CreateMoveOriginal(m_flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
 		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option :P
 		cvars(); // commands that do not to run each tick (i.e don't need usercmd, just dependent on localplayer & being in game)
 	}
-	if (cmd->m_nButtons & IN_SCORE)
+	if (cmd->m_nButtons & IN_SCORE && config.visuals.m_bRankRevealer)
 		interfaces.client->DispatchUserMessage(50, 0, 0, nullptr);
 	bhop(cmd);
 	autopistol(cmd);
 	triggerbot(cmd);
+	usespam(cmd);
 	return SetViewAngles;
 }
 void __stdcall _EmitSound(void* filter, int entityIndex, int channel, const char* soundEntry, unsigned int soundEntryHash, const char* sample, float volume, int seed, int soundLevel, int flags, int pitch, const vec3& origin, const vec3& direction, void* utlVecOrigins, bool updatePositions, float soundtime, int speakerentity, void* soundParams) { // thank you danielkrupinski/Osiris for these arguments
