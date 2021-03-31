@@ -133,8 +133,6 @@ public:
 	vec3 operator*(const vec3& in) { return vec3(x * in.x, y * in.y, z * in.z); }
 	vec3 operator/(const vec3& in) { return vec3(x / in.x, y / in.y, z / in.z); }
 	float dot(float* a) { return x * a[0] + y * a[1] + z * a[2]; }
-	float lengthsqr() { return (x * x + y * y + z * z); }
-	float length2d() { return sqrt(x * x + y * y); }
 	void clear() { x = y = z = 0.f; }
 };
 struct SPlayerInfo {
