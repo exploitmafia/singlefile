@@ -27,6 +27,6 @@ This is a featured CS:GO internal cheat written in less than 1000 lines, and in 
 * radar
 
 ## config
-a basic boolean-only config system is included using bitwise operations. the save & load buttons operate on a config file "Counter-Strike: Global Offensive\singlefile.cfg", where the config is stored as a number.
+a simple config system is included with this cheat. there is currently only one config, however we plan to expand this.. the save & load buttons operate on a config file "Counter-Strike: Global Offensive\singlefile.cfg", where the config is stored as a number.
 ## code style
 this was programmed with the intention of being a single-file cheat, as well as a target line count of under 1000. i achieved both of these with the initial version i am posting.
