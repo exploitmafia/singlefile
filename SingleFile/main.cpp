@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <cstdio>
 #include <string>
+#include <unordered_map>
 #pragma comment(lib, "minhook")
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
 #define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
@@ -429,18 +430,6 @@ WNDPROC orig_proc;
 struct vec2 {
 	int x, y;
 };
-int* Cursor() {
-	static int tmp[2];
-	POINT m_poCursor;
-	GetCursorPos(&m_poCursor);
-	ScreenToClient(csgo_window, &m_poCursor);
-	tmp[0] = m_poCursor.x;
-	tmp[1] = m_poCursor.y;
-	return tmp;
-}
-bool IsMouseInRegion(int x, int y, int w, int h) {
-	return Cursor()[0] > x && Cursor()[1] > y && Cursor()[0] < w + x && Cursor()[1] < h + y;
-}
 void load() { // not proud of using cpp here, but line count matters...
 	FILE* cfg = fopen("singlefile.cfg", "r");
 	fread(&config, sizeof(config), 1, cfg);
@@ -452,39 +441,56 @@ void save() {
 	fclose(cfg);
 }
 namespace menu {
+	std::unordered_map<const wchar_t*, bool> item_clicks = {};
 	unsigned long font, esp;
-	int x_pos = 0, y_pos = 0, vheight = 0, rpos = 0;
-	void window(const wchar_t* name, vec2 pos, vec2 size) {
+	vec2 start_pos, size;
+	bool dragging = false, clicked = false, item_active = false;;
+	int x_pos = 0, y_pos = 0, last_mouse_x = 0, last_mouse_y = 0;
+	bool in_region( int x, int y, int w, int h ) {
+		return last_mouse_x >= x && last_mouse_y >= y && last_mouse_x <= x + w && last_mouse_y <= y + h;
+	}
+	bool clicked_at( const wchar_t* n, int x, int y, int w, int h ) {
+		if (item_clicks.count(n) == 0) item_clicks[n] = false;
+		if (!in_region(x, y, w, h) && !item_clicks[n]) return false;
+		item_active = true;
+		if (clicked) {
+			bool ret = !item_clicks[n];
+			item_clicks[n] = true;
+			return ret;
+		}
+		item_clicks[n] = false;
+		return false;
+	}
+	void window(const wchar_t* name) {
+		item_active = false;
 		interfaces.surface->SetColor(23, 23, 30, 255);
-		interfaces.surface->DrawRectOutline(pos.x - 1, pos.y - 1, size.x + 2, size.y + 2);
+		interfaces.surface->DrawRectOutline(start_pos.x - 1, start_pos.y - 1, size.x + 2, size.y + 2);
 		interfaces.surface->SetColor(62, 62, 72, 255);
-		interfaces.surface->DrawRectOutline(pos.x, pos.y, size.x, size.y);
+		interfaces.surface->DrawRectOutline(start_pos.x, start_pos.y, size.x, size.y);
 ;		interfaces.surface->SetColor(37, 37, 37, 255);
-		interfaces.surface->DrawFilledRect(pos.x + 1, pos.y + 1, size.x - 2, size.y - 2);
+		interfaces.surface->DrawFilledRect(start_pos.x + 1, start_pos.y + 1, size.x - 2, size.y - 2);
 		interfaces.surface->SetColor(62, 62, 72, 255);
-		interfaces.surface->DrawRectOutline(pos.x + 5, pos.y + 5, size.x - 10, size.y - 10);
+		interfaces.surface->DrawRectOutline(start_pos.x + 5, start_pos.y + 5, size.x - 10, size.y - 10);
 		interfaces.surface->SetColor(30, 30, 30, 255);
-		interfaces.surface->DrawFilledRect(pos.x + 6, pos.y + 6, size.x - 12, size.y - 12);
+		interfaces.surface->DrawFilledRect(start_pos.x + 6, start_pos.y + 6, size.x - 12, size.y - 12);
 		interfaces.surface->SetColor(45, 45, 48, 255);
-		interfaces.surface->DrawFilledRect(pos.x + 6, pos.y + 6, size.x - 12, 14);
+		interfaces.surface->DrawFilledRect(start_pos.x + 6, start_pos.y + 6, size.x - 12, 14);
 		interfaces.surface->SetColor(60, 60, 70, 255);
-		interfaces.surface->DrawFilledRect(pos.x + 6, pos.y + 20, size.x - 12, 1);
+		interfaces.surface->DrawFilledRect(start_pos.x + 6, start_pos.y + 20, size.x - 12, 1);
 		interfaces.surface->SetTextColor(255, 255, 255, 255);
 		interfaces.surface->SetTextFont(menu::font);
 		static unsigned int u, i;
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
-		interfaces.surface->SetTextPosition(pos.x + (size.x / 2) - (u / 2), pos.y + 6);
+		interfaces.surface->SetTextPosition( start_pos.x + (size.x / 2) - (u / 2), start_pos.y + 6);
 		interfaces.surface->DrawText(name, wcslen(name));
-		x_pos = pos.x + 10;
-		y_pos = pos.y + 25;
-		rpos = pos.x;
-		vheight = size.y;
+		x_pos = start_pos.x + 10;
+		y_pos = start_pos.y + 25;
 	}
-	void column(int x) {
-		x_pos += 20 + x;
+	void column(int x_offset) {
+		x_pos += x_offset + 20;
+		y_pos = start_pos.y + 25;
 		interfaces.surface->SetColor(17, 17, 17, 255);
-		interfaces.surface->DrawFilledRect(x_pos - 5, rpos + 26, 1, vheight - 60 + 24);
-		y_pos = rpos + 25;
+		interfaces.surface->DrawFilledRect(x_pos - 5, start_pos.y + 26, 1, size.y - 60 + 24);
 	}
 	void checkbox(const wchar_t* name, bool* option) {
 		interfaces.surface->SetColor(27, 27, 27, 255);
@@ -499,7 +505,7 @@ namespace menu {
 		interfaces.surface->SetTextPosition(x_pos + 15, y_pos);
 		interfaces.surface->SetTextFont(menu::font);
 		interfaces.surface->DrawText(name, wcslen(name));
-		if (IsMouseInRegion(x_pos, y_pos, 12, 12) && GetAsyncKeyState(VK_LBUTTON) & 1 && GetAsyncKeyState(VK_LBUTTON))
+		if (clicked_at(name, x_pos, y_pos, 12, 12))
 			*option = !(*option);
 		y_pos += 15;
 	}
@@ -516,9 +522,23 @@ namespace menu {
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition(pos.x + (size.x / 2) - u / 2, pos.y + (size.y / 2) - i / 2);
 		interfaces.surface->DrawText(name, wcslen(name));
-		if (IsMouseInRegion(pos.x, pos.y, size.x, size.y) && GetAsyncKeyState(VK_LBUTTON) & 1 && GetAsyncKeyState(VK_LBUTTON))
+		if (clicked_at(name, pos.x, pos.y, size.x, size.y))
 			return true;
 		return false;
+	}
+	void move(int x, int y) {
+		auto store = [x, y] () -> void { menu::last_mouse_x = x; menu::last_mouse_y = y; };
+		if (!clicked) {
+			menu::dragging = false;
+			return store();
+		}
+		if (in_region(start_pos.x, start_pos.y, size.x, size.y) && !item_active)
+			menu::dragging = true;
+		if (menu::dragging) {
+			start_pos.x += x - menu::last_mouse_x;
+			start_pos.y += y - menu::last_mouse_y;
+		}
+		return store();
 	}
 }
 void SetupFonts() {
@@ -528,7 +548,12 @@ void SetupFonts() {
 	interfaces.surface->SetFontGlyphs(menu::esp, "Tahoma", 12, 600, 0x080); // dropshadow = 0x080, antialias = 0x010, outline = 0x200
 }
 void RenderMenu() {
-	menu::window(L"singlefile csgo internal", { 50, 50 }, { 420, 260 });
+	if (static bool once = false; !once) { // cringe init be like
+		menu::size = vec2(420, 260);
+		menu::start_pos = vec2(50, 50);
+		once = true;
+	}
+	menu::window(L"singlefile csgo internal");
 	menu::checkbox(L"bhop", &config.misc.m_bBhop); 
 	menu::checkbox(L"auto pistol", &config.aimbot.m_bAutoPistol);
 	menu::checkbox(L"hitsound", &config.misc.m_bHitSound);
@@ -542,17 +567,15 @@ void RenderMenu() {
 	menu::checkbox(L"noscope crosshair", &config.misc.m_bNoScopeCrosshair);
 	menu::checkbox(L"recoil crosshair", &config.misc.m_bRecoilCrosshair);
 	menu::checkbox(L"auto accept", &config.misc.m_bAutoAccept);
-	
 	menu::column(184);
-
 	menu::checkbox(L"triggerbot", &config.aimbot.m_bTriggerbot);
 	menu::checkbox(L"radar", &config.visuals.m_bRadar);
 	menu::checkbox(L"disable keyboard in menu", &config.misc.m_bGameKeyboard);
 	menu::checkbox(L"rank revealer", &config.visuals.m_bRankRevealer);
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
-	if (menu::button(L"load", {60, 270}, {195, 30}))
+	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
 		load();
-	if (menu::button(L"save", {265, 270}, {195, 30}))
+	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
 		save();
 }
 
@@ -592,6 +615,9 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 	}
+	menu::clicked = static_cast<bool>(wParam & MK_LBUTTON);
+	if (uMsg == WM_MOUSEMOVE)
+		menu::move(static_cast<int>(static_cast<short>(LOWORD(lParam))), static_cast<int>(static_cast<short>(HIWORD(lParam))));
 	return CallWindowProc(orig_proc, hWnd, uMsg, wParam, lParam);
 }
 enum {
@@ -759,11 +785,11 @@ void players() {
 			if (entity->GetHealth() > 100)
 				healthclr = rgba(0, 255, 0, 255);
 			else
-				healthclr = rgba((255 - entity->GetHealth() * 2.55f), (entity->GetHealth() * 2.55f), 0, 255);
+				healthclr = rgba(static_cast<int>(255 - entity->GetHealth() * 2.55f), static_cast<int>(entity->GetHealth() * 2.55f), 0, 255);
 			interfaces.surface->SetColor(0, 0, 0, 255);
 			interfaces.surface->DrawFilledRect(box.x - 10, box.y - 1, 5, box.h + 2);
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
-			interfaces.surface->DrawFilledRect(box.x - 9, box.y + box.h - ((box.h * (entity->GetHealth() / 100.f))), 3, (box.h * entity->GetHealth() / 100.f) + (entity->GetHealth() == 100 ? 0 : 1));
+			interfaces.surface->DrawFilledRect(box.x - 9, box.y + box.h - ((box.h * (entity->GetHealth() / 100))), 3, (box.h * entity->GetHealth() / 100) + (entity->GetHealth() == 100 ? 0 : 1));
 		}
 		if (config.visuals.m_bRadar)
 			entity->Spotted() = true;
