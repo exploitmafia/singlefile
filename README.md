@@ -7,8 +7,6 @@ This is a featured CS:GO internal cheat written in less than 1000 lines, and in 
 
 ![gui image](img/img1.png)
 
-thanks es3n1n for making the menu draggable!
-
 * config system
 * bhop
 * auto pistol
