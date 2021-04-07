@@ -759,11 +759,11 @@ void players() {
 			if (entity->GetHealth() > 100)
 				healthclr = rgba(0, 255, 0, 255);
 			else
-				healthclr = rgba((255 - entity->GetHealth() * 2.55f), (entity->GetHealth() * 2.55f), 0, 255);
+				healthclr = rgba(static_cast<int>(255 - entity->GetHealth() * 2.55f), static_cast<int>(entity->GetHealth() * 2.55f), 0, 255);
 			interfaces.surface->SetColor(0, 0, 0, 255);
 			interfaces.surface->DrawFilledRect(box.x - 10, box.y - 1, 5, box.h + 2);
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
-			interfaces.surface->DrawFilledRect(box.x - 9, box.y + box.h - ((box.h * (entity->GetHealth() / 100.f))), 3, (box.h * entity->GetHealth() / 100.f) + (entity->GetHealth() == 100 ? 0 : 1));
+			interfaces.surface->DrawFilledRect(box.x - 9, box.y + box.h - ((box.h * (entity->GetHealth() / 100))), 3, (box.h * entity->GetHealth() / 100) + (entity->GetHealth() == 100 ? 0 : 1));
 		}
 		if (config.visuals.m_bRadar)
 			entity->Spotted() = true;
