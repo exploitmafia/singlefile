@@ -450,9 +450,9 @@ namespace menu {
 		return last_mouse_x >= x && last_mouse_y >= y && last_mouse_x <= x + w && last_mouse_y <= y + h;
 	}
 	bool clicked_at( const wchar_t* n, int x, int y, int w, int h ) {
-		if (!in_region( x, y, w, h )) return false;
-		item_active = true;
 		if (item_clicks.count(n) == 0) item_clicks[n] = false;
+		if (!in_region(x, y, w, h) && !item_clicks[n]) return false;
+		item_active = true;
 		if (clicked) {
 			bool ret = !item_clicks[n];
 			item_clicks[n] = true;
@@ -532,7 +532,7 @@ namespace menu {
 			menu::dragging = false;
 			return store();
 		}
-		if (in_region( start_pos.x, start_pos.y, size.x, size.y) && !item_active)
+		if (in_region(start_pos.x, start_pos.y, size.x, size.y) && !item_active)
 			menu::dragging = true;
 		if (menu::dragging) {
 			start_pos.x += x - menu::last_mouse_x;
