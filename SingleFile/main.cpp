@@ -3,7 +3,9 @@
 #include <cstdio>
 #include <string>
 #include <unordered_map>
+#include <d3d9.h>
 #pragma comment(lib, "minhook")
+#pragma comment(lib, "d3d9")
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
 #define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
@@ -11,6 +13,10 @@ void* client_dll = nullptr;
 void* engine_dll = nullptr;
 int CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
 #define TriggerBotKEY VK_MBUTTON // 0 for no key or a vk code (ex. ALT = VK_LMENU, see https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
+#define GlowEnemyVIS ( 52.f / 255.f), (189.f / 255.f), (235.f / 255.f)
+#define GlowEnemyXQZ ( 48.f / 255.f), (230.f / 255.f), ( 54.f / 255.f)
+#define GlowTeamVIS  (106.f / 255.f), ( 48.f / 255.f), (230.f / 255.f)
+#define GlowTeamXQZ  (187.f / 255.f), ( 48.f / 255.f), (235.f / 255.f)
 typedef enum MH_STATUS
 {
 	MH_UNKNOWN = -1,
@@ -87,6 +93,9 @@ struct sconfig {
 		bool m_bDisablePostProcess;
 		bool m_bRankRevealer;
 		bool m_bFlashReducer;
+		bool m_bChams;
+		bool m_bChamsXQZ;
+		bool m_bChamsTeam;
 	}visuals;
 	struct smisc {
 		bool m_bBhop;
@@ -199,6 +208,7 @@ public:
 		void* networkable = this->GetNetworkable();
 		return v<CCSClientClass*(__thiscall*)(void*)>(networkable, 2)(networkable);
 	}
+	
 	__forceinline vec3 CollisonMins() { // CBaseEntity::m_Collison::m_vecMins
 		return *(vec3*)(this + 0x328);
 	}
@@ -239,7 +249,7 @@ public:
 		return *(float*)(this + 0x3238);
 	}
 	__forceinline matrix_t& GetCoordinateFrame() {
-		return *(matrix_t*)((this) + 0x444);
+		return *(matrix_t*)(this + 0x444);
 	}
 	__forceinline int GetTeamNumber() {
 		return *(int*)(this + 0xF4);
@@ -268,25 +278,29 @@ public:
 };
 class CGlobalVarsBase {
 public:
-	float		m_flRealTime;
-	int         m_nFrameCount;
-	float		m_flAbsFrameTime;
-	float		m_flAbsFrameStart;
-	float		m_flCurrentTime;
-	float		m_flFrameTime;
-	int         m_nMaxClients;
-	int         m_nTickCount;
-	float		m_flTickInterval;
-	float		m_flInteropolationAmount;
-	int	        m_nTicksThisFrmae;
-	int         m_nNetworkProtocol;
-	void*		m_pGameSaveData;
-	bool		m_bClient;
-	bool		m_bRemoteClient;
+	float			m_flRealTime;
+	int				m_nFrameCount;
+	float			m_flAbsFrameTime;
+	float			m_flAbsFrameStart;
+	float			m_flCurrentTime;
+	float			m_flFrameTime;
+	int				m_nMaxClients;
+	int				m_nTickCount;
+	float			m_flTickInterval;
+	float			m_flInteropolationAmount;
+	int				m_nTicksThisFrmae;
+	int				m_nNetworkProtocol;
+	void*			m_pGameSaveData;
+	bool			m_bClient;
+	bool			m_bRemoteClient;
 private:
-	int32_t     unk1;
-	int32_t     unk2;
+	unsigned int	unk1;
+	unsigned int	unk2;
 };
+template <typename T>
+T RelativeToAbsolute(unsigned int m_pAddress) {
+	return (T)(m_pAddress + 0x4 + *(int*)(m_pAddress));
+}
 class CBaseEntityList {
 public:
 	__forceinline CBaseEntity* GetEntity(int index) {
@@ -663,10 +677,6 @@ void flashreducer() {
 		interfaces.surface->DrawText(L"FLASHED!", wcslen(L"FLASHED!"));
 	}
 }
-template <typename T>
-T RelativeToAbsolute(unsigned int m_pAddress)  {
-	return (T)(m_pAddress + 0x4 + *(int*)(m_pAddress));
-}
 struct bbox {
 	int x, y, w, h;
 };
@@ -932,6 +942,7 @@ void __stdcall Init (HMODULE mod) {
 	void* surface_dll = GetModuleHandleA("vguimatsurface.dll");
 	void* vgui2_dll = GetModuleHandleA("vgui2.dll");
 	void* vstdlib_dll = GetModuleHandleA("vstdlib.dll");
+	void* materialsystem_dll = GetModuleHandleA("materialsystem.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
 	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.6"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are expierencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
