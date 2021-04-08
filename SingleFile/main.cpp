@@ -63,27 +63,6 @@ unsigned char* PatternScan(void* m_pModule, const char* m_szSignature) {
 	}
 	return nullptr;
 }
-namespace fnv_1a {
-	template< typename S >
-	struct fnv_internal;
-	template< typename S >
-	struct fnv1a;
-	template< >
-	struct fnv_internal< uint32_t > {
-		constexpr static uint32_t default_offset_basis = 0x811C9DC5;
-		constexpr static uint32_t prime = 0x01000193;
-	};
-	template< >
-	struct fnv1a< uint32_t > : public fnv_internal< uint32_t > {
-		constexpr static uint32_t hash(char const* string, const uint32_t val = default_offset_basis) {
-			return (string[0] == '\0') ? val : hash(&string[1], (val ^ uint32_t(string[0])) * prime);
-		}
-		constexpr static uint32_t hash(wchar_t const* string, const uint32_t val = default_offset_basis) {
-			return (string[0] == L'\0') ? val : hash(&string[1], (val ^ uint32_t(string[0])) * prime);
-		}
-	};
-}
-using fnv = fnv_1a::fnv1a< uint32_t >;
 #undef DrawText
 #undef CreateFont
 template <typename I>
@@ -429,6 +408,10 @@ HWND csgo_window;
 WNDPROC orig_proc;
 struct vec2 {
 	int x, y;
+	vec2(int x = 0, int y = 0) {
+		this->x = x;
+		this->y = y;
+	}
 };
 void load() {
 	FILE* cfg = fopen("singlefile.cfg", "r");
@@ -785,7 +768,7 @@ void players() {
 			if (entity->GetHealth() > 100)
 				healthclr = rgba(0, 255, 0, 255);
 			else
-				healthclr = rgba(static_cast<int>(255 - entity->GetHealth() * 2.55f), static_cast<int>(entity->GetHealth() * 2.55f), 0, 255);
+				healthclr = rgba((int)(255 - entity->GetHealth() * 2.55f), (int)(entity->GetHealth() * 2.55f), 0, 255);
 			interfaces.surface->SetColor(0, 0, 0, 255);
 			interfaces.surface->DrawFilledRect(box.x - 10, box.y - 1, 5, box.h + 2);
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
@@ -852,8 +835,8 @@ void usespam(CUserCmd* cmd) {
 			cmd->m_nButtons &= ~IN_USE;
 	}
 }
-bool __stdcall _CreateMove(float m_flInputSampleTime, CUserCmd* cmd) {
-	bool SetViewAngles = CreateMoveOriginal(m_flInputSampleTime, cmd);
+bool __stdcall _CreateMove(float flInputSampleTime, CUserCmd* cmd) {
+	bool SetViewAngles = CreateMoveOriginal(flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
 		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option :P
 		cvars(); // commands that do not to run each tick (i.e don't need usercmd, just dependent on localplayer & being in game)
@@ -881,19 +864,19 @@ bool __stdcall _GameEvents(IGameEvent* event) {
 	}
 	return GameEventsOriginal(interfaces.events, event);
 }
-void __stdcall _PaintTraverse(unsigned int panel, bool m_bForceRepaint, bool m_bAllowRepaint) {
-	auto drawing = fnv::hash(interfaces.panel->GetPanelName(panel));
-	if (drawing == fnv::hash("MatSystemTopPanel")) {
+void __stdcall _PaintTraverse(unsigned int dwPanel, bool bForceRepaint, bool bAllowRepaint) {
+	const char* drawing = interfaces.panel->GetPanelName(dwPanel);
+	if (strstr(drawing, "MatSystemTopPanel")) {
 		players();
 		speclist();
 		if (menu_open)
 			RenderMenu();
 	}
-	if (drawing == fnv::hash("FocusOverlayPanel")) {
-		interfaces.panel->SetInputMouseState(panel, menu_open);
-		interfaces.panel->SetInputKeyboardState(panel, menu_open && (config.misc.m_bGameKeyboard));
+	if (strstr(drawing, "FocusOverlayPanel")) {
+		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
+		interfaces.panel->SetInputKeyboardState(dwPanel, menu_open && (config.misc.m_bGameKeyboard));
 	}
-	return PaintTraverseOriginal(interfaces.panel, panel, m_bForceRepaint, m_bAllowRepaint);
+	return PaintTraverseOriginal(interfaces.panel, dwPanel, bForceRepaint, bAllowRepaint);
 }
 void LoadHooks() {
 	MH_Initialize();
