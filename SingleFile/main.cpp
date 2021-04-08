@@ -430,7 +430,7 @@ WNDPROC orig_proc;
 struct vec2 {
 	int x, y;
 };
-void load() { // not proud of using cpp here, but line count matters...
+void load() {
 	FILE* cfg = fopen("singlefile.cfg", "r");
 	fread(&config, sizeof(config), 1, cfg);
 	fclose(cfg);
@@ -444,7 +444,7 @@ namespace menu {
 	std::unordered_map<const wchar_t*, bool> item_clicks = {};
 	unsigned long font, esp;
 	vec2 start_pos, size;
-	bool dragging = false, clicked = false, item_active = false;;
+	bool dragging = false, clicked = false, item_active = false;
 	int x_pos = 0, y_pos = 0, last_mouse_x = 0, last_mouse_y = 0;
 	bool in_region( int x, int y, int w, int h ) {
 		return last_mouse_x >= x && last_mouse_y >= y && last_mouse_x <= x + w && last_mouse_y <= y + h;
@@ -467,7 +467,7 @@ namespace menu {
 		interfaces.surface->DrawRectOutline(start_pos.x - 1, start_pos.y - 1, size.x + 2, size.y + 2);
 		interfaces.surface->SetColor(62, 62, 72, 255);
 		interfaces.surface->DrawRectOutline(start_pos.x, start_pos.y, size.x, size.y);
-;		interfaces.surface->SetColor(37, 37, 37, 255);
+		interfaces.surface->SetColor(37, 37, 37, 255);
 		interfaces.surface->DrawFilledRect(start_pos.x + 1, start_pos.y + 1, size.x - 2, size.y - 2);
 		interfaces.surface->SetColor(62, 62, 72, 255);
 		interfaces.surface->DrawRectOutline(start_pos.x + 5, start_pos.y + 5, size.x - 10, size.y - 10);
