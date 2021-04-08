@@ -427,14 +427,14 @@ namespace menu {
 	std::unordered_map<const wchar_t*, bool> item_clicks = {};
 	unsigned long font, esp;
 	vec2 start_pos, size;
-	bool dragging = false, clicked = false, item_active = false;
+	bool dragging = false, clicked = false, item_active = false, inmove = false;
 	int x_pos = 0, y_pos = 0, last_mouse_x = 0, last_mouse_y = 0;
 	bool in_region( int x, int y, int w, int h ) {
 		return last_mouse_x >= x && last_mouse_y >= y && last_mouse_x <= x + w && last_mouse_y <= y + h;
 	}
 	bool clicked_at( const wchar_t* n, int x, int y, int w, int h ) {
 		if (item_clicks.count(n) == 0) item_clicks[n] = false;
-		if (!in_region(x, y, w, h) && !item_clicks[n]) return false;
+		if (!in_region(x, y, w, h) && !item_clicks[n] || menu::inmove) return false;
 		item_active = true;
 		if (clicked) {
 			bool ret = !item_clicks[n];
@@ -466,6 +466,10 @@ namespace menu {
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition( start_pos.x + (size.x / 2) - (u / 2), start_pos.y + 6);
 		interfaces.surface->DrawText(name, wcslen(name));
+		if (menu::dragging) {
+			interfaces.surface->SetColor(255, 255, 255, 35);
+			interfaces.surface->DrawFilledRect(start_pos.x, start_pos.y, size.x, 20);
+		}
 		x_pos = start_pos.x + 10;
 		y_pos = start_pos.y + 25;
 	}
@@ -515,7 +519,7 @@ namespace menu {
 			menu::dragging = false;
 			return store();
 		}
-		if (in_region(start_pos.x, start_pos.y, size.x, size.y) && !item_active)
+		if (in_region(start_pos.x, start_pos.y, size.x, 20) && !item_active)
 			menu::dragging = true;
 		if (menu::dragging) {
 			start_pos.x += x - menu::last_mouse_x;
@@ -531,7 +535,7 @@ void SetupFonts() {
 	interfaces.surface->SetFontGlyphs(menu::esp, "Tahoma", 12, 600, 0x080); // dropshadow = 0x080, antialias = 0x010, outline = 0x200
 }
 void RenderMenu() {
-	if (static bool once = false; !once) { // cringe init be like
+	if (static bool once = false; !once) { // cringe init be like | this is better than std::once :P
 		menu::size = vec2(420, 260);
 		menu::start_pos = vec2(50, 50);
 		once = true;
@@ -588,7 +592,6 @@ bool(__stdcall* CreateMoveOriginal)(float, CUserCmd*);
 void(__thiscall* PaintTraverseOriginal)(IPanel*, unsigned int, bool, bool);
 bool(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
 void(__stdcall* EmitSoundOriginal)(void*, int, int, const char*, unsigned int, const char*, float, int, int, int, int, const vec3&, const vec3&, void*, bool, float, int, void*);
-int(__fastcall* SvCheatsGetIntOriginal)(void*);
 LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (uMsg == WM_KEYDOWN) {
@@ -598,9 +601,14 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 	}
-	menu::clicked = static_cast<bool>(wParam & MK_LBUTTON);
-	if (uMsg == WM_MOUSEMOVE)
-		menu::move(static_cast<int>(static_cast<short>(LOWORD(lParam))), static_cast<int>(static_cast<short>(HIWORD(lParam))));
+	menu::clicked = (bool)(wParam & MK_LBUTTON);
+	if (uMsg == WM_MOUSEMOVE) {
+		menu::move((int)((short)(LOWORD(lParam))), (int)((short)(HIWORD(lParam))));
+		menu::inmove = true;
+	}
+	else {
+		menu::inmove = false;
+	}
 	return CallWindowProc(orig_proc, hWnd, uMsg, wParam, lParam);
 }
 enum {
@@ -642,7 +650,7 @@ void autoaccept(const char* sound) {
 	}
 }
 template <typename T>
-static T RelativeToAbsolute(unsigned int m_pAddress)  {
+T RelativeToAbsolute(unsigned int m_pAddress)  {
 	return (T)(m_pAddress + 0x4 + *(int*)(m_pAddress));
 }
 struct bbox {
