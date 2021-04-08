@@ -86,6 +86,7 @@ struct sconfig {
 		bool m_bRadar;
 		bool m_bDisablePostProcess;
 		bool m_bRankRevealer;
+		bool m_bFlashReducer;
 	}visuals;
 	struct smisc {
 		bool m_bBhop;
@@ -252,11 +253,11 @@ public:
 	__forceinline bool& Spotted() {
 		return *(bool*)(this + 0x93D);
 	}
-	__forceinline int& ObserverMode() {
-		return *(int*)(this + 0x3378);
-	}
-	__forceinline float& FlashDuration() {
+	__forceinline float FlashDuration() {
 		return *(float*)(this + 0xA420);
+	}
+	__forceinline float& FlashMaxAlpha() {
+		return *(float*)(this + 0xA41C);
 	}
 	__forceinline int Ammo() {
 		return *(int*)(this + 0x3264);
@@ -466,10 +467,6 @@ namespace menu {
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition( start_pos.x + (size.x / 2) - (u / 2), start_pos.y + 6);
 		interfaces.surface->DrawText(name, wcslen(name));
-		if (menu::dragging) {
-			interfaces.surface->SetColor(255, 255, 255, 35);
-			interfaces.surface->DrawFilledRect(start_pos.x, start_pos.y, size.x, 20);
-		}
 		x_pos = start_pos.x + 10;
 		y_pos = start_pos.y + 25;
 	}
@@ -560,6 +557,7 @@ void RenderMenu() {
 	menu::checkbox(L"disable keyboard in menu", &config.misc.m_bGameKeyboard);
 	menu::checkbox(L"rank revealer", &config.visuals.m_bRankRevealer);
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
+	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
 	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
 		load();
 	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
@@ -647,6 +645,22 @@ void autoaccept(const char* sound) {
 		static bool(__stdcall * SetLPReady)(const char*) = (decltype(SetLPReady))PatternScan(client_dll, "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12");
 		if (config.misc.m_bAutoAccept)
 			SetLPReady("");
+	}
+}
+void flashreducer() {
+	if (!config.visuals.m_bFlashReducer || !interfaces.engine->IsInGame())
+		return;
+	CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
+	if (localplayer->FlashDuration() > 3.f) {
+		localplayer->FlashMaxAlpha() = 100;
+		interfaces.surface->SetTextColor(255, 100, 100, 255);
+		unsigned int w, h;
+		interfaces.engine->GetScreenSize(w, h);
+		unsigned int tw, th;
+		interfaces.surface->GetTextSize(6, L"FLASHED!", tw, th); // first 50 built-in vgui fonts: https://cdn.discordapp.com/attachments/634094496300400641/821827439042101258/unknown.png
+		interfaces.surface->SetTextPosition((w * 0.5f) - tw * 0.5f, h * 0.75f);
+		interfaces.surface->SetTextFont(6); 
+		interfaces.surface->DrawText(L"FLASHED!", wcslen(L"FLASHED!"));
 	}
 }
 template <typename T>
@@ -877,6 +891,7 @@ void __stdcall _PaintTraverse(unsigned int dwPanel, bool bForceRepaint, bool bAl
 	if (strstr(drawing, "MatSystemTopPanel")) {
 		players();
 		speclist();
+		flashreducer();
 		if (menu_open)
 			RenderMenu();
 	}
