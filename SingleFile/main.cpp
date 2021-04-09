@@ -3,9 +3,7 @@
 #include <cstdio>
 #include <string>
 #include <unordered_map>
-#include <d3d9.h>
 #pragma comment(lib, "minhook")
-#pragma comment(lib, "d3d9")
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
 #define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
@@ -93,9 +91,9 @@ struct sconfig {
 		bool m_bDisablePostProcess;
 		bool m_bRankRevealer;
 		bool m_bFlashReducer;
-		bool m_bChams;
-		bool m_bChamsXQZ;
-		bool m_bChamsTeam;
+		bool m_bGlow;
+		bool m_bGlowXQZ;
+		bool m_bGlowTeam;
 	}visuals;
 	struct smisc {
 		bool m_bBhop;
@@ -198,6 +196,41 @@ public:
 	void* m_pRecvTable;
 	CCSClientClass* m_pNextClass;
 	int m_nClassID;
+};
+template <typename _t>
+class CUtlVector {
+public:
+	_t* m_pMemory;
+	int		m_nAllocSize;
+	int		m_nNextSize;
+	int		m_nSize;
+	void* m_pElements;
+	_t& operator[](int i) {
+		return m_pMemory[i];
+	}
+};
+class CGlowObject {
+public:
+	CBaseEntity*	m_pEntity;
+	vec3			m_vecColor;
+	float			m_flAlpha;
+private:
+	unsigned char	pad_0x0[0xD];
+public:
+	bool		    m_bRenderWhenOccluded;
+	bool		    m_bRenderWhenUnOccluded;
+private:
+	unsigned char	pad_0x1[0x5];
+public:
+	int				m_nStyle;
+private:
+	unsigned char	pad_0x2[0x04];
+public:
+	int				m_nNextSlot;
+};
+class CGlowObjectManager {
+public:
+	CUtlVector<CGlowObject>m_pGlowObjects;
 };
 class CBaseEntity {
 public:
@@ -418,6 +451,7 @@ struct sinterfaces {
 	CGlobalVarsBase* globals = nullptr;
 	ICVar* cvar = nullptr;
 	ISound* sound = nullptr;
+	CGlowObjectManager* glow = nullptr;
 }interfaces;
 HWND csgo_window;
 WNDPROC orig_proc;
@@ -600,6 +634,7 @@ public:
 private:
 	unsigned char pad_0x1[0x18];
 };
+
 bool(__stdcall* CreateMoveOriginal)(float, CUserCmd*);
 void(__thiscall* PaintTraverseOriginal)(IPanel*, unsigned int, bool, bool);
 bool(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
@@ -867,6 +902,16 @@ void usespam(CUserCmd* cmd) {
 			cmd->m_nButtons &= ~IN_USE;
 	}
 }
+void glow() {
+	for (int i = 0; i < interfaces.glow->m_pGlowObjects.m_nSize; i++) {
+		CGlowObject& obj = interfaces.glow->m_pGlowObjects[i];
+		CBaseEntity* pEntity = obj.m_pEntity;
+		if (!pEntity || pEntity->IsDormant() || pEntity->GetHealth() < 1 || obj.m_nNextSlot != -2)
+			continue;
+		obj.m_bRenderWhenOccluded = true;
+		obj.m_bRenderWhenUnOccluded = true;
+	}
+}
 bool __stdcall _CreateMove(float flInputSampleTime, CUserCmd* cmd) {
 	bool SetViewAngles = CreateMoveOriginal(flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
@@ -942,7 +987,6 @@ void __stdcall Init (HMODULE mod) {
 	void* surface_dll = GetModuleHandleA("vguimatsurface.dll");
 	void* vgui2_dll = GetModuleHandleA("vgui2.dll");
 	void* vstdlib_dll = GetModuleHandleA("vstdlib.dll");
-	void* materialsystem_dll = GetModuleHandleA("materialsystem.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
 	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.6"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are expierencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
@@ -961,10 +1005,11 @@ void __stdcall Init (HMODULE mod) {
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
 	MH_DisableHook(MH_ALL_HOOKS);
+	MH_RemoveHook(MH_ALL_HOOKS);
 	MH_Uninitialize();
+	FreeConsole();
 }
 BOOL APIENTRY DllMain(HMODULE m_hModule, DWORD m_dwReason, LPVOID m_pReserved) {
-	DisableThreadLibraryCalls(m_hModule);
 	if (m_dwReason == DLL_PROCESS_ATTACH)
 		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)Init, m_hModule, 0, NULL);
 	return TRUE;
