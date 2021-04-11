@@ -74,7 +74,7 @@ __forceinline I v(PVOID iface, DWORD index) { return (I)((*(DWORD**)iface)[index
 using matrix_t = FLOAT[3][4];
 using matrix4x4_t = FLOAT[4][4];
 // config system
-BOOLEAN menu_open = true;
+BOOLEAN menu_open = TRUE;
 struct sconfig {
 	struct saim {
 		BOOLEAN m_bTriggerbot;
@@ -326,7 +326,7 @@ public:
 		return v<matrix4x4_t& (__thiscall*)(PVOID)>(this, 37)(this);
 	}
 	__forceinline VOID ClientCmdUnrestricted(LPCSTR szCommand) {
-		return v<VOID(__thiscall*)(PVOID, LPCSTR, BOOLEAN)>(this, 114)(this, szCommand, false);
+		return v<VOID(__thiscall*)(PVOID, LPCSTR, BOOLEAN)>(this, 114)(this, szCommand, FALSE);
 	}
 	__forceinline LPCSTR GetVersionString() {
 		return v<LPCSTR (__thiscall*)(PVOID)>(this, 105)(this);
@@ -341,7 +341,7 @@ public:
 		return v<LPCSTR(__thiscall*)(PVOID)>(this, 1)(this);
 	}
 	__forceinline BOOLEAN GetBool(LPCSTR keyName) {
-		return v<BOOLEAN(__thiscall*)(PVOID, LPCSTR, BOOLEAN)>(this, 5)(this, keyName, false);
+		return v<BOOLEAN(__thiscall*)(PVOID, LPCSTR, BOOLEAN)>(this, 5)(this, keyName, FALSE);
 	}
 	__forceinline INT GetInt(LPCSTR keyName) {
 		return v<int(__thiscall*)(PVOID, LPCSTR, int)>(this, 6)(this, keyName, 0);
@@ -440,25 +440,25 @@ namespace menu {
 	std::unordered_map<LPCWSTR, BOOLEAN> item_clicks = {};
 	DWORD font, esp;
 	vec2 start_pos, size;
-	BOOLEAN dragging = false, clicked = false, item_active = false, inmove = false;
+	BOOLEAN dragging = FALSE, clicked = FALSE, item_active = FALSE, inmove = FALSE;
 	INT x_pos = 0, y_pos = 0, last_mouse_x = 0, last_mouse_y = 0;
 	BOOLEAN in_region( INT x, INT y, INT w, INT h ) {
 		return last_mouse_x >= x && last_mouse_y >= y && last_mouse_x <= x + w && last_mouse_y <= y + h;
 	}
 	BOOLEAN clicked_at( LPCWSTR n, INT x, INT y, INT w, INT h ) {
-		if (item_clicks.count(n) == 0) item_clicks[n] = false;
-		if (!in_region(x, y, w, h) && !item_clicks[n] || menu::inmove) return false;
-		item_active = true;
+		if (item_clicks.count(n) == 0) item_clicks[n] = FALSE;
+		if (!in_region(x, y, w, h) && !item_clicks[n] || menu::inmove) return FALSE;
+		item_active = TRUE;
 		if (clicked) {
 			BOOLEAN ret = !item_clicks[n];
-			item_clicks[n] = true;
+			item_clicks[n] = TRUE;
 			return ret;
 		}
-		item_clicks[n] = false;
-		return false;
+		item_clicks[n] = FALSE;
+		return FALSE;
 	}
 	VOID window(LPCWSTR name) {
-		item_active = false;
+		item_active = FALSE;
 		interfaces.surface->SetColor(23, 23, 30, 255);
 		interfaces.surface->DrawRectOutline(start_pos.x - 1, start_pos.y - 1, size.x + 2, size.y + 2);
 		interfaces.surface->SetColor(62, 62, 72, 255);
@@ -519,17 +519,17 @@ namespace menu {
 		interfaces.surface->SetTextPosition(pos.x + (size.x / 2) - u / 2, pos.y + (size.y / 2) - i / 2);
 		interfaces.surface->DrawText(name, wcslen(name));
 		if (clicked_at(name, pos.x, pos.y, size.x, size.y))
-			return true;
-		return false;
+			return TRUE;
+		return FALSE;
 	}
 	VOID move(INT x, INT y) {
 		auto store = [x, y] () -> VOID { menu::last_mouse_x = x; menu::last_mouse_y = y; };
 		if (!clicked) {
-			menu::dragging = false;
+			menu::dragging = FALSE;
 			return store();
 		}
 		if (in_region(start_pos.x, start_pos.y, size.x, 20) && !item_active)
-			menu::dragging = true;
+			menu::dragging = TRUE;
 		if (menu::dragging) {
 			start_pos.x += x - menu::last_mouse_x;
 			start_pos.y += y - menu::last_mouse_y;
@@ -544,10 +544,10 @@ VOID SetupFonts() {
 	interfaces.surface->SetFontGlyphs(menu::esp, "Tahoma", 12, 600, 0x080); // dropshadow = 0x080, antialias = 0x010, outline = 0x200
 }
 VOID RenderMenu() {
-	if (static BOOLEAN once = false; !once) { // cringe init be like | this is better than std::once :P
+	if (static BOOLEAN once = FALSE; !once) { // cringe init be like | this is better than std::once :P
 		menu::size = vec2(420, 260);
 		menu::start_pos = vec2(50, 50);
-		once = true;
+		once = TRUE;
 	}
 	menu::window(L"singlefile csgo internal");
 	menu::checkbox(L"bhop", &config.misc.m_bBhop); 
@@ -614,11 +614,11 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	}
 	menu::clicked = (BOOLEAN)(wParam & MK_LBUTTON);
 	if (uMsg == WM_MOUSEMOVE) {
-		menu::move((int)((short)(LOWORD(lParam))), (int)((short)(HIWORD(lParam))));
-		menu::inmove = true;
+		menu::move((INT)((SHORT)(LOWORD(lParam))), (INT)((SHORT)(HIWORD(lParam))));
+		menu::inmove = TRUE;
 	}
 	else {
-		menu::inmove = false;
+		menu::inmove = FALSE;
 	}
 	return CallWindowProc(orig_proc, hWnd, uMsg, wParam, lParam);
 }
@@ -687,7 +687,7 @@ BOOLEAN WorldToScreen(const vec3& world, vec3& screen)
 	screen.z = world.x * view[2][0] + world.y * view[2][1] + world.z * view[2][2] + view[2][3];
 	FLOAT  w = world.x * view[3][0] + world.y * view[3][1] + world.z * view[3][2] + view[3][3];
 	if (w < 0.1f)
-		return false;
+		return FALSE;
 	vec3 ndc;
 	ndc.x = screen.x / w;
 	ndc.y = screen.y / w;
@@ -696,7 +696,7 @@ BOOLEAN WorldToScreen(const vec3& world, vec3& screen)
 	interfaces.engine->GetScreenSize(x, y);
 	screen.x = (x / 2 * ndc.x) + (ndc.x + x / 2);
 	screen.y = -(y / 2 * ndc.y) + (ndc.y + y / 2);
-	return true;
+	return TRUE;
 }
 #define FL_MAX 3.40282e+038;
 vec3 VectorTransform(vec3 in, matrix_t matrix) {
@@ -719,7 +719,7 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 	};
 	for (INT i = 0; i <= 7; i++) {
 		if (!WorldToScreen(VectorTransform(poINTs[i], rgflTransFrame), vecTransScreen[i]))
-			return false;
+			return FALSE;
 	}
 	vec3 vecBoxes[] = {
 		vecTransScreen[3],
@@ -746,7 +746,7 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 	box.y = (INT)(flTop);
 	box.w = (INT)(flRight)-(INT)(flLeft);
 	box.h = (INT)(flBottom)-(INT)(flTop);
-	return true;
+	return TRUE;
 }
 struct rgba {
 	INT r, g, b, a;
@@ -799,14 +799,14 @@ VOID players() {
 			if (entity->GetHealth() > 100)
 				healthclr = rgba(0, 255, 0, 255);
 			else
-				healthclr = rgba((int)(255 - entity->GetHealth() * 2.55f), (int)(entity->GetHealth() * 2.55f), 0, 255);
+				healthclr = rgba((INT)(255 - entity->GetHealth() * 2.55f), (INT)(entity->GetHealth() * 2.55f), 0, 255);
 			interfaces.surface->SetColor(0, 0, 0, 255);
 			interfaces.surface->DrawFilledRect(box.x - 10, box.y - 1, 5, box.h + 2);
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
-			interfaces.surface->DrawFilledRect(box.x - 9, (box.y + box.h - ((box.h * (entity->GetHealth() / 100)))), 3, (box.h * entity->GetHealth() / 100.f) + (entity->GetHealth() == 100 ? 0 : 1));
+			interfaces.surface->DrawFilledRect(box.x - 9, (box.y + box.h - (DWORD)((box.h * (entity->GetHealth() / 100.f)))), 3, (DWORD)((FLOAT)box.h * entity->GetHealth() / 100.f) + (entity->GetHealth() == 100 ? 0 : 1));
 		}
 		if (config.visuals.m_bRadar)
-			entity->Spotted() = true;
+			entity->Spotted() = TRUE;
 	}
 }
 VOID cvars() {
@@ -898,7 +898,7 @@ BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
 DWORD fnv(LPCSTR szString, DWORD nOffset = 0x811C9DC5) {
 	return (*szString == '\0') ? nOffset : fnv(&szString[1], (nOffset ^ DWORD(*szString)) * 0x01000193);
 }
-VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaINT, BOOLEAN bAllowRepaint) {
+VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) {
 	DWORD drawing = fnv(interfaces.panel->GetPanelName(dwPanel));
 	if (drawing == 0xA4A548AF) { // fnv("MatSystemTopPanel") = 0xA4A548AF
 		players();
@@ -911,7 +911,7 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaINT, BOOLEAN bAllowR
 		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
 		interfaces.panel->SetInputKeyboardState(dwPanel, menu_open && (config.misc.m_bGameKeyboard));
 	}
-	return PaintTraverseOriginal(interfaces.panel, dwPanel, bForceRepaINT, bAllowRepaint);
+	return PaintTraverseOriginal(interfaces.panel, dwPanel, bForceRepaint, bAllowRepaint);
 }
 VOID LoadHooks() {
 	MH_Initialize();
