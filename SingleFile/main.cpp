@@ -197,41 +197,6 @@ public:
 	CCSClientClass* m_pNextClass;
 	int m_nClassID;
 };
-template <typename _t>
-class CUtlVector {
-public:
-	_t* m_pMemory;
-	int		m_nAllocSize;
-	int		m_nNextSize;
-	int		m_nSize;
-	void* m_pElements;
-	_t& operator[](int i) {
-		return m_pMemory[i];
-	}
-};
-class CGlowObject {
-public:
-	CBaseEntity*	m_pEntity;
-	vec3			m_vecColor;
-	float			m_flAlpha;
-private:
-	unsigned char	pad_0x0[0xD];
-public:
-	bool		    m_bRenderWhenOccluded;
-	bool		    m_bRenderWhenUnOccluded;
-private:
-	unsigned char	pad_0x1[0x5];
-public:
-	int				m_nStyle;
-private:
-	unsigned char	pad_0x2[0x04];
-public:
-	int				m_nNextSlot;
-};
-class CGlowObjectManager {
-public:
-	CUtlVector<CGlowObject>m_pGlowObjects;
-};
 class CBaseEntity {
 public:
 	__forceinline void* GetNetworkable() {
@@ -451,7 +416,6 @@ struct sinterfaces {
 	CGlobalVarsBase* globals = nullptr;
 	ICVar* cvar = nullptr;
 	ISound* sound = nullptr;
-	CGlowObjectManager* glow = nullptr;
 }interfaces;
 HWND csgo_window;
 WNDPROC orig_proc;
@@ -707,7 +671,7 @@ void flashreducer() {
 		interfaces.engine->GetScreenSize(w, h);
 		unsigned int tw, th;
 		interfaces.surface->GetTextSize(6, L"FLASHED!", tw, th); // first 50 built-in vgui fonts: https://cdn.discordapp.com/attachments/634094496300400641/821827439042101258/unknown.png
-		interfaces.surface->SetTextPosition((w * 0.5f) - tw * 0.5f, h * 0.75f);
+		interfaces.surface->SetTextPosition((unsigned int)((w * 0.5f) - tw * 0.5f), (unsigned int)(h * 0.75f));
 		interfaces.surface->SetTextFont(6); 
 		interfaces.surface->DrawText(L"FLASHED!", wcslen(L"FLASHED!"));
 	}
@@ -839,7 +803,7 @@ void players() {
 			interfaces.surface->SetColor(0, 0, 0, 255);
 			interfaces.surface->DrawFilledRect(box.x - 10, box.y - 1, 5, box.h + 2);
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
-			interfaces.surface->DrawFilledRect(box.x - 9, box.y + box.h - ((box.h * (entity->GetHealth() / 100))), 3, (box.h * entity->GetHealth() / 100) + (entity->GetHealth() == 100 ? 0 : 1));
+			interfaces.surface->DrawFilledRect(box.x - 9, (box.y + box.h - ((box.h * (entity->GetHealth() / 100)))), 3, (box.h * entity->GetHealth() / 100.f) + (entity->GetHealth() == 100 ? 0 : 1));
 		}
 		if (config.visuals.m_bRadar)
 			entity->Spotted() = true;
@@ -902,16 +866,6 @@ void usespam(CUserCmd* cmd) {
 			cmd->m_nButtons &= ~IN_USE;
 	}
 }
-void glow() {
-	for (int i = 0; i < interfaces.glow->m_pGlowObjects.m_nSize; i++) {
-		CGlowObject& obj = interfaces.glow->m_pGlowObjects[i];
-		CBaseEntity* pEntity = obj.m_pEntity;
-		if (!pEntity || pEntity->IsDormant() || pEntity->GetHealth() < 1 || obj.m_nNextSlot != -2)
-			continue;
-		obj.m_bRenderWhenOccluded = true;
-		obj.m_bRenderWhenUnOccluded = true;
-	}
-}
 bool __stdcall _CreateMove(float flInputSampleTime, CUserCmd* cmd) {
 	bool SetViewAngles = CreateMoveOriginal(flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
@@ -941,16 +895,19 @@ bool __stdcall _GameEvents(IGameEvent* event) {
 	}
 	return GameEventsOriginal(interfaces.events, event);
 }
+DWORD fnv(const char* szString, DWORD nOffset = 0x811C9DC5) {
+	return (*szString == '\0') ? nOffset : fnv(&szString[1], (nOffset ^ DWORD(*szString)) * 0x01000193);
+}
 void __stdcall _PaintTraverse(unsigned int dwPanel, bool bForceRepaint, bool bAllowRepaint) {
-	const char* drawing = interfaces.panel->GetPanelName(dwPanel);
-	if (strstr(drawing, "MatSystemTopPanel")) {
+	DWORD drawing = fnv(interfaces.panel->GetPanelName(dwPanel));
+	if (drawing == 0xA4A548AF) { // fnv("MatSystemTopPanel") = 0xA4A548AF
 		players();
 		speclist();
 		flashreducer();
 		if (menu_open)
 			RenderMenu();
 	}
-	if (strstr(drawing, "FocusOverlayPanel")) {
+	if (drawing == 0x8BE56F81) { // fnv("FocusOverlayPanelj") = 0x8BE56F81
 		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
 		interfaces.panel->SetInputKeyboardState(dwPanel, menu_open && (config.misc.m_bGameKeyboard));
 	}
