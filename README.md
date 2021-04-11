@@ -3,9 +3,11 @@
 This is a featured CS:GO internal cheat written in less than 1000 lines, and in one C++ file. I encourage you to submit feature suggestions and issues with the cheat!
 
 ## features
-* gui
+* draggable gui
 
 ![gui image](img/img1.png)
+
+thanks es3n1n for making the menu draggable!
 
 * config system
 * bhop
@@ -23,10 +25,21 @@ This is a featured CS:GO internal cheat written in less than 1000 lines, and in 
 * noscope crosshair
 * recoil crosshair
 * auto accept
-* configurable triggerbot
+* triggerbot
 * radar
+* rankrevealer
+* use spam
+* flash reducer
 
 ## config
-a simple config system is included with this cheat. there is currently only one config, however we plan to expand this.. the save & load buttons operate on a config file "Counter-Strike: Global Offensive\singlefile.cfg", where the config is stored as a number.
+a simple config system is included with this cheat. there is currently only one config, however we plan to expand this.. the save & load buttons operate on a config file "Counter-Strike: Global Offensive\singlefile.cfg", where the config is stored as a binary representation of the config structure. Unfortunately, a more user editable config system such as JSON is not possible due to size constraints.
 ## code style
 this was programmed with the intention of being a single-file cheat, as well as a target line count of under 1000. i achieved both of these with the initial version i am posting.
+
+## changelog
+### v1.0
+adds esp, as well as basic misc.
+## v1.1
+adds triggerbot, radar, and other misc functions
+## v1.2
+adds draggable menu, rank revealer, use spam and flash reducer
