@@ -33,7 +33,7 @@ thanks es3n1n for making the menu draggable!
 
 ## config
 a simple config system is included with this cheat. there is currently only one config, however we plan to expand this.. the save & load buttons operate on a config file "Counter-Strike: Global Offensive\singlefile.cfg", where the config is stored as a binary representation of the config structure. Unfortunately, a more user editable config system such as JSON is not possible due to size constraints.
-##code style
+## code style
 this was programmed with the intention of being a single-file cheat, as well as a target line count of under 1000. i achieved both of these with the initial version i am posting.
 
 ## changelog
