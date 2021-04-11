@@ -71,8 +71,8 @@ unsigned char* PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 #undef CreateFont
 template <typename I>
 __forceinline I v(PVOID iface, DWORD index) { return (I)((*(DWORD**)iface)[index]); }
-using matrix_t = float[3][4];
-using matrix4x4_t = float[4][4];
+using matrix_t = FLOAT[3][4];
+using matrix4x4_t = FLOAT[4][4];
 // config system
 BOOLEAN menu_open = true;
 struct sconfig {
@@ -108,8 +108,8 @@ struct sconfig {
 }config;
 class vec3 {
 public:
-	float x, y, z;
-	vec3(float a = 0, float b = 0, float c = 0) {
+	FLOAT x, y, z;
+	vec3(FLOAT a = 0, FLOAT b = 0, FLOAT c = 0) {
 		this->x = a;
 		this->y = b;
 		this->z = c;
@@ -122,7 +122,7 @@ public:
 	vec3 operator-(const vec3& in) { return vec3(x - in.x, y - in.y, z - in.z); }
 	vec3 operator*(const vec3& in) { return vec3(x * in.x, y * in.y, z * in.z); }
 	vec3 operator/(const vec3& in) { return vec3(x / in.x, y / in.y, z / in.z); }
-	float dot(float* a) { return x * a[0] + y * a[1] + z * a[2]; }
+	FLOAT dot(FLOAT* a) { return x * a[0] + y * a[1] + z * a[2]; }
 	VOID clear() { x = y = z = 0.f; }
 };
 struct SPlayerInfo {
@@ -243,8 +243,8 @@ public:
 	__forceinline INT GetWeaponType() {
 		return v<int(__thiscall*)(PVOID)>(this, 454)(this);
 	}
-	__forceinline float WeaponNextAttack() { // CBaseCombatWeapon::m_flNextPrimaryAttack
-		return *(float*)(this + 0x3238);
+	__forceinline FLOAT WeaponNextAttack() { // CBaseCombatWeapon::m_flNextPrimaryAttack
+		return *(FLOAT*)(this + 0x3238);
 	}
 	__forceinline matrix_t& GetCoordinateFrame() {
 		return *(matrix_t*)(this + 0x444);
@@ -261,11 +261,11 @@ public:
 	__forceinline BOOLEAN& Spotted() {
 		return *(BOOLEAN*)(this + 0x93D);
 	}
-	__forceinline float FlashDuration() {
-		return *(float*)(this + 0xA420);
+	__forceinline FLOAT FlashDuration() {
+		return *(FLOAT*)(this + 0xA420);
 	}
-	__forceinline float& FlashMaxAlpha() {
-		return *(float*)(this + 0xA41C);
+	__forceinline FLOAT& FlashMaxAlpha() {
+		return *(FLOAT*)(this + 0xA41C);
 	}
 	__forceinline INT Ammo() {
 		return *(int*)(this + 0x3264);
@@ -276,16 +276,16 @@ public:
 };
 class CGlobalVarsBase {
 public:
-	float			m_flRealTime;
+	FLOAT			m_flRealTime;
 	int				m_nFrameCount;
-	float			m_flAbsFrameTime;
-	float			m_flAbsFrameStart;
-	float			m_flCurrentTime;
-	float			m_flFrameTime;
+	FLOAT			m_flAbsFrameTime;
+	FLOAT			m_flAbsFrameStart;
+	FLOAT			m_flCurrentTime;
+	FLOAT			m_flFrameTime;
 	int				m_nMaxClients;
 	int				m_nTickCount;
-	float			m_flTickInterval;
-	float			m_flInteropolationAmount;
+	FLOAT			m_flTickInterval;
+	FLOAT			m_flInteropolationAmount;
 	int				m_nTicksThisFrmae;
 	int				m_nNetworkProtocol;
 	PVOID			m_pGameSaveData;
@@ -314,7 +314,7 @@ public:
 		return v<VOID(__thiscall*)(PVOID, DWORD&, DWORD&)>(this, 5)(this, w, h);
 	}
 	__forceinline BOOLEAN GetPlayerInfo(INT idx, SPlayerInfo* info) {
-		return v<BOOLEAN(__thiscall*)(PVOID, int, SPlayerInfo*)>(this, 8)(this, idx, info);
+		return v<BOOLEAN(__thiscall*)(PVOID, INT, SPlayerInfo*)>(this, 8)(this, idx, info);
 	}
 	__forceinline DWORD GetLocalPlayer() {
 		return v<DWORD(__thiscall*)(PVOID)>(this, 12)(this);
@@ -361,8 +361,8 @@ public:
 };
 class CConvar {
 public:
-	__forceinline float GetFloat() {
-		return v<float(__thiscall*)(PVOID)>(this, 12)(this);
+	__forceinline FLOAT GetFloat() {
+		return v<FLOAT(__thiscall*)(PVOID)>(this, 12)(this);
 	}
 	__forceinline INT GetInt() {
 		return v<int(__thiscall*)(PVOID)>(this, 13)(this);
@@ -370,8 +370,8 @@ public:
 	__forceinline VOID SetValue(LPCSTR value) {
 		return v<VOID(__thiscall*)(PVOID, LPCSTR)>(this, 14)(this, value);
 	}
-	__forceinline VOID SetValue(float value) {
-		return v<VOID(__thiscall*)(PVOID, float)>(this, 15)(this, value);
+	__forceinline VOID SetValue(FLOAT value) {
+		return v<VOID(__thiscall*)(PVOID, FLOAT)>(this, 15)(this, value);
 	}
 	__forceinline VOID SetValue(INT value) {
 		return v<VOID(__thiscall*)(PVOID, int)>(this, 16)(this, value);
@@ -399,7 +399,7 @@ public:
 		return v<CClientClass* (__thiscall*)(PVOID)>(this, 8)(this);
 	}
 	__forceinline BOOLEAN DispatchUserMessage(INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData) {
-		return v<BOOLEAN(__thiscall*)(PVOID, int, int, int, PVOID)>(this, 38)(this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData);
+		return v<BOOLEAN(__thiscall*)(PVOID, INT, INT, INT, PVOID)>(this, 38)(this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData);
 	}
 };
 class IClientModeShared;
@@ -584,9 +584,9 @@ public:
 	int			m_nTickCount;
 	vec3		m_vecAngles;
 	vec3		m_vecDirection;
-	float		m_flForwardMove;
-	float		m_flSideMove;
-	float		m_flUpMove;
+	FLOAT		m_flForwardMove;
+	FLOAT		m_flSideMove;
+	FLOAT		m_flUpMove;
 	int			m_nButtons;
 	char		m_chImpulse;
 	int			m_nWeaponSelect;
@@ -599,10 +599,10 @@ private:
 	unsigned char pad_0x1[0x18];
 };
 
-BOOLEAN(__stdcall* CreateMoveOriginal)(float, CUserCmd*);
+BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, CUserCmd*);
 VOID(__thiscall* PaintTraverseOriginal)(IPanel*, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
-VOID(__stdcall* EmitSoundOriginal)(PVOID, int, int, LPCSTR, DWORD, LPCSTR, float, int, int, int, int, const vec3&, const vec3&, PVOID, BOOLEAN, float, int, PVOID);
+VOID(WINAPI* EmitSoundOriginal)(PVOID, INT, INT, LPCSTR, DWORD, LPCSTR, FLOAT, INT, INT, INT, INT, const vec3&, const vec3&, PVOID, BOOLEAN, FLOAT, INT, PVOID);
 LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (uMsg == WM_KEYDOWN) {
@@ -655,7 +655,7 @@ VOID autopistol(CUserCmd* cmd) {
 }
 VOID autoaccept(LPCSTR sound) {
 	if (strstr(sound, "UIPanorama.popup_accept_match_beep")) {
-		static BOOLEAN(__stdcall * SetLPReady)(LPCSTR) = (decltype(SetLPReady))PatternScan(client_dll, "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12");
+		static BOOLEAN(WINAPI * SetLPReady)(LPCSTR) = (decltype(SetLPReady))PatternScan(client_dll, "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12");
 		if (config.misc.m_bAutoAccept)
 			SetLPReady("");
 	}
@@ -685,7 +685,7 @@ BOOLEAN WorldToScreen(const vec3& world, vec3& screen)
 	screen.x = world.x * view[0][0] + world.y * view[0][1] + world.z * view[0][2] + view[0][3];
 	screen.y = world.x * view[1][0] + world.y * view[1][1] + world.z * view[1][2] + view[1][3];
 	screen.z = world.x * view[2][0] + world.y * view[2][1] + world.z * view[2][2] + view[2][3];
-	float  w = world.x * view[3][0] + world.y * view[3][1] + world.z * view[3][2] + view[3][3];
+	FLOAT  w = world.x * view[3][0] + world.y * view[3][1] + world.z * view[3][2] + view[3][3];
 	if (w < 0.1f)
 		return false;
 	vec3 ndc;
@@ -703,11 +703,11 @@ vec3 VectorTransform(vec3 in, matrix_t matrix) {
 	return vec3(in.dot(matrix[0]) + matrix[0][3], in.dot(matrix[1]) + matrix[1][3], in.dot(matrix[2]) + matrix[2][3]);
 }
 BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
-	matrix_t& m_rgflTransFrame = (matrix_t&)player->GetCoordinateFrame();
+	matrix_t& rgflTransFrame = (matrix_t&)player->GetCoordinateFrame();
 	const vec3 min = player->CollisonMins();
 	const vec3 max = player->CollisonMaxs();
-	vec3 m_vecTransScreen[8];
-	vec3 points[] = {
+	vec3 vecTransScreen[8];
+	vec3 poINTs[] = {
 		vec3(min.x, min.y, min.z),
 		vec3(min.x, max.y, min.z),
 		vec3(max.x, max.y, min.z),
@@ -718,34 +718,34 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 		vec3(max.x, min.y, max.z)
 	};
 	for (INT i = 0; i <= 7; i++) {
-		if (!WorldToScreen(VectorTransform(points[i], m_rgflTransFrame), m_vecTransScreen[i]))
+		if (!WorldToScreen(VectorTransform(poINTs[i], rgflTransFrame), vecTransScreen[i]))
 			return false;
 	}
-	vec3 m_vecBoxes[] = {
-		m_vecTransScreen[3],
-		m_vecTransScreen[5], 
-		m_vecTransScreen[0], 
-		m_vecTransScreen[4],
-		m_vecTransScreen[2], 
-		m_vecTransScreen[1],
-		m_vecTransScreen[6],
-		m_vecTransScreen[7] 
+	vec3 vecBoxes[] = {
+		vecTransScreen[3],
+		vecTransScreen[5], 
+		vecTransScreen[0], 
+		vecTransScreen[4],
+		vecTransScreen[2], 
+		vecTransScreen[1],
+		vecTransScreen[6],
+		vecTransScreen[7] 
 	};
-	float m_flLeft = m_vecTransScreen[3].x, m_flBottom = m_vecTransScreen[3].y, m_flRight = m_vecTransScreen[3].x, m_flTop = m_vecTransScreen[3].y;
+	FLOAT flLeft = vecTransScreen[3].x, flBottom = vecTransScreen[3].y, flRight = vecTransScreen[3].x, flTop = vecTransScreen[3].y;
 	for (INT i = 0; i <= 7; i++) {
-		if (m_flLeft > m_vecBoxes[i].x)
-			m_flLeft = m_vecBoxes[i].x;
-		if (m_flBottom < m_vecBoxes[i].y)
-			m_flBottom = m_vecBoxes[i].y;
-		if (m_flRight < m_vecBoxes[i].x)
-			m_flRight = m_vecBoxes[i].x;
-		if (m_flTop > m_vecBoxes[i].y)
-			m_flTop = m_vecBoxes[i].y;
+		if (flLeft > vecBoxes[i].x)
+			flLeft = vecBoxes[i].x;
+		if (flBottom < vecBoxes[i].y)
+			flBottom = vecBoxes[i].y;
+		if (flRight < vecBoxes[i].x)
+			flRight = vecBoxes[i].x;
+		if (flTop > vecBoxes[i].y)
+			flTop = vecBoxes[i].y;
 	}
-	box.x = (int)(m_flLeft);
-	box.y = (int)(m_flTop);
-	box.w = (int)(m_flRight)-(int)(m_flLeft);
-	box.h = (int)(m_flBottom)-(int)(m_flTop);
+	box.x = (INT)(flLeft);
+	box.y = (INT)(flTop);
+	box.w = (INT)(flRight)-(INT)(flLeft);
+	box.h = (INT)(flBottom)-(INT)(flTop);
 	return true;
 }
 struct rgba {
@@ -866,7 +866,7 @@ VOID usespam(CUserCmd* cmd) {
 			cmd->m_nButtons &= ~IN_USE;
 	}
 }
-BOOLEAN __stdcall _CreateMove(float flInputSampleTime, CUserCmd* cmd) {
+BOOLEAN WINAPI _CreateMove(FLOAT flInputSampleTime, CUserCmd* cmd) {
 	BOOLEAN SetViewAngles = CreateMoveOriginal(flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
 		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option :P
@@ -880,11 +880,11 @@ BOOLEAN __stdcall _CreateMove(float flInputSampleTime, CUserCmd* cmd) {
 	usespam(cmd);
 	return SetViewAngles;
 }
-VOID __stdcall _EmitSound(PVOID pFilter, INT nEntityIndex, INT nChannel, LPCSTR szSoundEntry, DWORD dwHash, LPCSTR szSample, FLOAT flVolume, INT nSeed, INT nSoundLevel, INT nFlags, INT nPitch, const vec3& vecOrigin, const vec3& vecDirection, PVOID pvecOrigins, BOOLEAN bUpdatePos, float flTime, INT nEntityID, PVOID pSoundParams) { // thank you danielkrupinski/Osiris for these arguments
+VOID WINAPI _EmitSound(PVOID pFilter, INT nEntityIndex, INT nChannel, LPCSTR szSoundEntry, DWORD dwHash, LPCSTR szSample, FLOAT flVolume, INT nSeed, INT nSoundLevel, INT nFlags, INT nPitch, const vec3& vecOrigin, const vec3& vecDirection, PVOID pvecOrigins, BOOLEAN bUpdatePos, FLOAT flTime, INT nEntityID, PVOID pSoundParams) { // thank you danielkrupinski/Osiris for these arguments
 	autoaccept(szSoundEntry);
 	return EmitSoundOriginal(pFilter, nEntityIndex, nChannel, szSoundEntry, dwHash, szSample, flVolume, nSeed, nSoundLevel, nSoundLevel, nPitch, vecOrigin, vecDirection, pvecOrigins, bUpdatePos, flTime, nEntityID, pSoundParams);
 }
-BOOLEAN __stdcall _GameEvents(IGameEvent* event) {
+BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
 	if (config.misc.m_bHitSound) {
 		if (strstr(event->GetName(), "player_hurt")) {
 			SPlayerInfo player;
@@ -898,7 +898,7 @@ BOOLEAN __stdcall _GameEvents(IGameEvent* event) {
 DWORD fnv(LPCSTR szString, DWORD nOffset = 0x811C9DC5) {
 	return (*szString == '\0') ? nOffset : fnv(&szString[1], (nOffset ^ DWORD(*szString)) * 0x01000193);
 }
-VOID __stdcall _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) {
+VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaINT, BOOLEAN bAllowRepaint) {
 	DWORD drawing = fnv(interfaces.panel->GetPanelName(dwPanel));
 	if (drawing == 0xA4A548AF) { // fnv("MatSystemTopPanel") = 0xA4A548AF
 		players();
@@ -911,7 +911,7 @@ VOID __stdcall _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAll
 		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
 		interfaces.panel->SetInputKeyboardState(dwPanel, menu_open && (config.misc.m_bGameKeyboard));
 	}
-	return PaintTraverseOriginal(interfaces.panel, dwPanel, bForceRepaint, bAllowRepaint);
+	return PaintTraverseOriginal(interfaces.panel, dwPanel, bForceRepaINT, bAllowRepaint);
 }
 VOID LoadHooks() {
 	MH_Initialize();
@@ -930,7 +930,7 @@ T CreateInterface(PVOID m_pModule, LPCSTR m_szInterface) {
 	return ((T(*)(LPCSTR, DWORD))GetProcAddress((HMODULE)m_pModule, "CreateInterface"))(m_szInterface, 0x0);
 }
 INT GetLineCount();
-VOID __stdcall Init (HMODULE mod) {
+VOID WINAPI Init (HMODULE mod) {
 	while (!GetModuleHandleA("serverbrowser.dll"))
 		Sleep(250);
 	AllocConsole();
@@ -966,9 +966,9 @@ VOID __stdcall Init (HMODULE mod) {
 	MH_Uninitialize();
 	FreeConsole();
 }
-BOOL APIENTRY DllMain(HMODULE m_hModule, DWORD m_dwReason, LPVOID m_pReserved) {
-	if (m_dwReason == DLL_PROCESS_ATTACH)
-		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)Init, m_hModule, 0, NULL);
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID pReserved) {
+	if (dwReason == DLL_PROCESS_ATTACH)
+		CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)Init, hModule, 0, NULL);
 	return TRUE;
 }
 INT GetLineCount() { // must be at bottom obviously :P
