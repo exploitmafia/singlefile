@@ -936,7 +936,7 @@ VOID WINAPI Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.2 beta: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.2: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", nullptr);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
@@ -946,7 +946,7 @@ VOID WINAPI Init (HMODULE mod) {
 	PVOID vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
 	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.6"))
-		printf("note: you are using an unknown cs:go client version (%s). if you are expierencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
+		printf("note: you are using an unknown cs:go client version (%s). if you are experiencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
 	interfaces.panel = CreateInterface<IPanel*>(vgui2_dll, "VGUI_Panel009");
