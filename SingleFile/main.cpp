@@ -11,11 +11,7 @@ PVOID client_dll = nullptr;
 PVOID engine_dll = nullptr;
 INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
 #define TriggerBotKEY VK_MBUTTON // 0 for no key or a vk code (ex. ALT = VK_LMENU, see https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
-#define GlowEnemyVIS ( 52.f / 255.f), (189.f / 255.f), (235.f / 255.f)
-#define GlowEnemyXQZ ( 48.f / 255.f), (230.f / 255.f), ( 54.f / 255.f)
-#define GlowTeamVIS  (106.f / 255.f), ( 48.f / 255.f), (230.f / 255.f)
-#define GlowTeamXQZ  (187.f / 255.f), ( 48.f / 255.f), (235.f / 255.f)
-typedef enum MH_STATUS
+#typedef enum MH_STATUS
 {
 	MH_UNKNOWN = -1,
 	MH_OK = 0,
