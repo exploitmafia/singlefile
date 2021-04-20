@@ -61,7 +61,7 @@ unsigned char* PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 			first_match = 0x0;
 		}
 	}
-	return nullptr;
+	return NULL;
 }
 #undef DrawText
 #undef CreateFont
