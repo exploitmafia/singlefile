@@ -7,8 +7,8 @@
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
 #define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
-PVOID client_dll = nullptr;
-PVOID engine_dll = nullptr;
+PVOID client_dll = NULL;
+PVOID engine_dll = NULL;
 INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
 #define TriggerBotKEY VK_MBUTTON // 0 for no key or a vk code (ex. ALT = VK_LMENU, see https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
 typedef enum MH_STATUS
@@ -16,7 +16,6 @@ typedef enum MH_STATUS
 	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
 }
 MH_STATUS; // get min hook here: https://github.com/TsudaKageyu/minhook | License for minhook (text of license has not been modified, just newlines removed) : /* MinHook - The Minimalistic API Hooking Library for x64 / x86 * Copyright(C) 2009 - 2017 Tsuda Kageyu. * All rights reserved. * *Redistribution and use in source and binary forms, with or without * modification, are permitted provided that the following conditions * are met : * *1. Redistributions of source code must retain the above copyright * notice, this list of conditionsand the following disclaimer. * 2. Redistributions in binary form must reproduce the above copyright * notice, this list of conditionsand the following disclaimer in the * documentationand /or other materials provided with the distribution. * *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A * PARTICULAR PURPOSE ARE DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER * OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, * EXEMPLARY, OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, *PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT(INCLUDING * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. * /
-#define MH_ALL_HOOKS NULL
 extern "C" {
 	MH_STATUS WINAPI MH_Initialize(VOID);
 	MH_STATUS WINAPI MH_Uninitialize(VOID);
@@ -48,15 +47,16 @@ PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 			first_match = 0x0;
 		}
 	}
-	return nullptr;
+	return NULL;
 }
 #undef DrawText
 #undef CreateFont
 
 template <typename I, std::size_t Idx, typename ...Args>
-__forceinline I v(PVOID iface, Args... args) { return (*reinterpret_cast<I(__thiscall***)(void*, Args...)>(iface))[Idx](iface, args...); }
+__forceinline I v(PVOID iface, Args... args) { return (*(I(__thiscall***)(void*, Args...))(iface))[Idx](iface, args...); }
 #define VIRTUAL_METHOD(returnType, name, idx, args, argsRaw) __forceinline returnType name args { return v<returnType, idx>argsRaw; }
-
+#define OFFSET(type, name, offset) __forceinline type name(VOID) { return *(type*)(this + offset); }
+#define ROFFSET(type, name, offset) __forceinline type& name(VOID) { return *(type*)(this + offset);} // not sure if there's a better way to do this but whatever
 using matrix_t = FLOAT[3][4];
 using matrix4x4_t = FLOAT[4][4];
 // config system
@@ -77,9 +77,6 @@ struct sconfig {
 		BOOLEAN m_bDisablePostProcess;
 		BOOLEAN m_bRankRevealer;
 		BOOLEAN m_bFlashReducer;
-		BOOLEAN m_bGlow;
-		BOOLEAN m_bGlowXQZ;
-		BOOLEAN m_bGlowTeam;
 	}visuals;
 	struct smisc {
 		BOOLEAN m_bBhop;
@@ -137,7 +134,7 @@ public:
 	VIRTUAL_METHOD(VOID, SetTextColor, 25, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a))
 	VIRTUAL_METHOD(VOID, SetTextPosition, 26, (DWORD x, DWORD y), (this, x, y))
 	VIRTUAL_METHOD(VOID, DrawText, 28, (LPCWSTR text, DWORD len), (this, text, len, 0))
-	VIRTUAL_METHOD(DWORD, CreateFont, 71, (), (this))
+	VIRTUAL_METHOD(DWORD, CreateFont, 71, (VOID), (this))
 	VIRTUAL_METHOD(BOOLEAN, SetFontGlyphs, 72, (DWORD _font, LPCSTR name, DWORD height, DWORD weight, DWORD font_flags), (this, _font, name, height, weight, 0, 0, font_flags, 0, 0))
 	VIRTUAL_METHOD(VOID, SetTextFont, 23, (DWORD _font), (this, _font))
 	VIRTUAL_METHOD(VOID, DrawRectOutline, 18, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h))
@@ -168,73 +165,31 @@ public:
 	__forceinline PVOID GetNetworkable() {
 		return (PVOID)(this + 0x8);
 	}
-
-	VIRTUAL_METHOD(CCSClientClass*, GetClientClass, 2, (), (this->GetNetworkable()))
-
-	__forceinline vec3 CollisonMins() { // CBaseEntity::m_Collison::m_vecMins
-		return *(vec3*)(this + 0x328);
-	}
-	__forceinline vec3 CollisonMaxs() { // CBaseEntity::m_Collison::m_vecMaxs
-		return *(vec3*)(this + 0x334);
-	}
-
-	VIRTUAL_METHOD(vec3&, GetAbsOrigin, 10, (), (this))
-
-	__forceinline vec3 GetViewOffset() { //	CBaseEntity::localdata::m_vecViewOffset
-		return *(vec3*)(this + 0x108);
-	}
-	__forceinline vec3 GetEyePosition() {
+	VIRTUAL_METHOD(CCSClientClass*, GetClientClass, 2, (VOID), (this->GetNetworkable()));
+	OFFSET(vec3, CollisonMins, 0x328); // CBaseEntity::m_Collison::m_vecMins
+	OFFSET(vec3, CollisonMaxs, 0x334);
+	VIRTUAL_METHOD(vec3&, GetAbsOrigin, 10, (VOID), (this));
+	OFFSET(vec3, GetViewOffset, 0x108); // CBaseEntity::localdata::m_vecViewOffset
+	__forceinline vec3 GetEyePosition(VOID) {
 		return (this->GetAbsOrigin() + this->GetViewOffset());
 	}
-	__forceinline BOOLEAN IsDormant() { // client.dll!8A 81 ? ? ? ? C3 32 C0 + 0x2
-		return *(BOOLEAN*)(this + 0xED);
-	}
-	__forceinline BOOLEAN IsInImmunity() { // CCSPlayer::m_bHasGunGameImmunity
-		return *(BOOLEAN*)(this + 0x3944);
-	}
-	__forceinline INT GetFlags() { // CCSPlayer::m_fFlags
-		return *(int*)(this + 0x104);
-	}
-	__forceinline INT MoveType() { // CCSPlayer::m_MoveType
-		return *(int*)(this + 0x25C);
-	}
-	__forceinline INT GetHealth() { // CBaseEntity::m_iHealth
-		return *(int*)(this + 0x100);
-	}
-
-	VIRTUAL_METHOD(CBaseEntity*, GetWeapon, 267, (), (this))
-	VIRTUAL_METHOD(INT, GetWeaponType, 454, (), (this))
-
-	__forceinline FLOAT WeaponNextAttack() { // CBaseCombatWeapon::m_flNextPrimaryAttack
-		return *(FLOAT*)(this + 0x3238);
-	}
-	__forceinline matrix_t& GetCoordinateFrame() {
-		return *(matrix_t*)(this + 0x444);
-	}
-	__forceinline INT GetTeamNumber() {
-		return *(int*)(this + 0xF4);
-	}
-
-	VIRTUAL_METHOD(CBaseEntity*, GetObserverTarget, 294, (), (this))
-
-	__forceinline BOOLEAN& IsScoped() {
-		return *(BOOLEAN*)(this + 0x3928);
-	}
-	__forceinline BOOLEAN& Spotted() {
-		return *(BOOLEAN*)(this + 0x93D);
-	}
-	__forceinline FLOAT FlashDuration() {
-		return *(FLOAT*)(this + 0xA420);
-	}
-	__forceinline FLOAT& FlashMaxAlpha() {
-		return *(FLOAT*)(this + 0xA41C);
-	}
-	__forceinline INT Ammo() {
-		return *(int*)(this + 0x3264);
-	}
-	__forceinline INT CrosshairTarget() {
-		return *(int*)(this + 0xB3E4);
-	}
+	OFFSET(BOOLEAN, IsDormant, 0xED);
+	OFFSET(BOOLEAN, IsInImmunity, 0x3944);// CCSPlayer::m_bHasGunGameImmunity
+	OFFSET(INT, GetFlags, 0x104);
+	OFFSET(INT, MoveType, 0x25C);
+	OFFSET(INT, GetHealth, 0x100);
+	VIRTUAL_METHOD(CBaseEntity*, GetWeapon, 267, (VOID), (this));
+	VIRTUAL_METHOD(INT, GetWeaponType, 454, (VOID), (this));
+	OFFSET(FLOAT, WeaponNextAttack, 0x3238);
+	ROFFSET(matrix_t, GetCoordinateFrame, 0x444);
+	OFFSET(INT, GetTeamNumber, 0xF4);
+	VIRTUAL_METHOD(CBaseEntity*, GetObserverTarget, 294, (VOID), (this))
+	OFFSET(BOOLEAN, IsScoped, 0x3928);
+	ROFFSET(BOOLEAN, Spotted, 0x93D);
+	OFFSET(FLOAT, FlashDuration, 0xA420);
+	ROFFSET(FLOAT, FlashMaxAlpha, 0xA41C)
+	OFFSET(INT, Ammo, 0x3264);
+	OFFSET(INT, CrosshairTarget, 0xB3E4);
 };
 class CGlobalVarsBase {
 public:
@@ -263,43 +218,43 @@ T RelativeToAbsolute(DWORD m_pAddress) {
 }
 class CBaseEntityList {
 public:
-	VIRTUAL_METHOD(CBaseEntity*, GetEntity, 3, (INT index), (this, index))
+	VIRTUAL_METHOD(CBaseEntity*, GetEntity, 3, (INT index), (this, index));
 };
 class IVEngineClient {
 public:
-	VIRTUAL_METHOD(INT, GetMaxClients, 20, (), (this))
-	VIRTUAL_METHOD(VOID, GetScreenSize, 5, (DWORD& w, DWORD& h), (this, std::ref(w), std::ref(h)))
-	VIRTUAL_METHOD(BOOLEAN, GetPlayerInfo, 8, (INT idx, SPlayerInfo* info), (this, idx, info))
-	VIRTUAL_METHOD(DWORD, GetLocalPlayer, 12, (), (this))
-	VIRTUAL_METHOD(BOOLEAN, IsInGame, 26, (), (this))
-	VIRTUAL_METHOD(matrix4x4_t&, GetViewMatrix, 37, (), (this))
-	VIRTUAL_METHOD(VOID, ClientCmdUnrestricted, 114, (LPCSTR szCommand), (this, szCommand, FALSE))
-	VIRTUAL_METHOD(LPCSTR, GetVersionString, 105, (), (this))
-	VIRTUAL_METHOD(INT, GetPlayerIndex, 9, (INT m_nIndex), (this, m_nIndex))
+	VIRTUAL_METHOD(INT, GetMaxClients, 20, (VOID), (this));
+	VIRTUAL_METHOD(VOID, GetScreenSize, 5, (DWORD& w, DWORD& h), (this, std::ref(w), std::ref(h)));
+	VIRTUAL_METHOD(BOOLEAN, GetPlayerInfo, 8, (INT idx, SPlayerInfo* info), (this, idx, info));
+	VIRTUAL_METHOD(DWORD, GetLocalPlayer, 12, (VOID), (this));
+	VIRTUAL_METHOD(BOOLEAN, IsInGame, 26, (VOID), (this));
+	VIRTUAL_METHOD(matrix4x4_t&, GetViewMatrix, 37, (VOID), (this));
+	VIRTUAL_METHOD(VOID, ClientCmdUnrestricted, 114, (LPCSTR szCommand), (this, szCommand, FALSE));
+	VIRTUAL_METHOD(LPCSTR, GetVersionString, 105, (VOID), (this));
+	VIRTUAL_METHOD(INT, GetPlayerIndex, 9, (INT nIndex), (this, nIndex));
 };
 class IGameEvent {
 public:
-	VIRTUAL_METHOD(LPCSTR, GetName, 1, (), (this))
-	VIRTUAL_METHOD(BOOLEAN, GetBool, 5, (LPCSTR keyName), (this, keyName, FALSE))
-	VIRTUAL_METHOD(INT, GetInt, 6, (LPCSTR keyName), (this, keyName, 0))
+	VIRTUAL_METHOD(LPCSTR, GetName, 1, (VOID), (this));
+	VIRTUAL_METHOD(BOOLEAN, GetBool, 5, (LPCSTR keyName), (this, keyName, FALSE));
+	VIRTUAL_METHOD(INT, GetInt, 6, (LPCSTR keyName), (this, keyName, 0));
 };
 class IPanel {
 public:
-	VIRTUAL_METHOD(VOID, SetInputKeyboardState, 31, (DWORD PanelID, BOOLEAN State), (this, PanelID, State))
-	VIRTUAL_METHOD(VOID, SetInputMouseState, 32, (DWORD PanelID, BOOLEAN State), (this, PanelID, State))
-	VIRTUAL_METHOD(LPCSTR, GetPanelName, 36, (DWORD PanelID), (this, PanelID))
+	VIRTUAL_METHOD(VOID, SetInputKeyboardState, 31, (DWORD PanelID, BOOLEAN State), (this, PanelID, State));
+	VIRTUAL_METHOD(VOID, SetInputMouseState, 32, (DWORD PanelID, BOOLEAN State), (this, PanelID, State));
+	VIRTUAL_METHOD(LPCSTR, GetPanelName, 36, (DWORD PanelID), (this, PanelID));
 };
 class CConvar {
 public:
-	VIRTUAL_METHOD(FLOAT, GetFloat, 12, (), (this))
-	VIRTUAL_METHOD(INT, GetInt, 13, (), (this))
-	VIRTUAL_METHOD(VOID, SetValue, 14, (LPCSTR value), (this, value))
-	VIRTUAL_METHOD(VOID, SetValue, 15, (FLOAT value), (this, value))
-	VIRTUAL_METHOD(VOID, SetValue, 16, (INT value), (this, value))
+	VIRTUAL_METHOD(FLOAT, GetFloat, 12, (VOID), (this));
+	VIRTUAL_METHOD(INT, GetInt, 13, (VOID), (this));
+	VIRTUAL_METHOD(VOID, SetValue, 14, (LPCSTR value), (this, value));
+	VIRTUAL_METHOD(VOID, SetValue, 15, (FLOAT value), (this, value));
+	VIRTUAL_METHOD(VOID, SetValue, 16, (INT value), (this, value));
 };
 class ICVar {
 public:
-	VIRTUAL_METHOD(CConvar*, FindVar, 15, (LPCSTR name), (this, name))
+	VIRTUAL_METHOD(CConvar*, FindVar, 15, (LPCSTR name), (this, name));
 };
 class CRecvProp;
 class CClientClass {
@@ -813,7 +768,7 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 		if (menu_open)
 			RenderMenu();
 	}
-	if (drawing == 0x8BE56F81) { // fnv("FocusOverlayPanelj") = 0x8BE56F81
+	if (drawing == 0x8BE56F81) { // fnv("FocusOverlayPanel") = 0x8BE56F81
 		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
 		interfaces.panel->SetInputKeyboardState(dwPanel, menu_open && (config.misc.m_bGameKeyboard));
 	}
@@ -821,11 +776,11 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 }
 VOID LoadHooks() {
 	MH_Initialize();
-	MH_CreateHook((*reinterpret_cast<PVOID**>(interfaces.client_mode))[24], &_CreateMove, (PVOID*)&CreateMoveOriginal);
-	MH_CreateHook((*reinterpret_cast<PVOID**>(interfaces.panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
-	MH_CreateHook((*reinterpret_cast<PVOID**>(interfaces.events))[9], &_GameEvents, (PVOID*)&GameEventsOriginal);
-	MH_CreateHook((*reinterpret_cast<PVOID**>(interfaces.sound))[5], &_EmitSound, (PVOID*)&EmitSoundOriginal);
-	MH_EnableHook(MH_ALL_HOOKS);
+	MH_CreateHook((*(PVOID**)(interfaces.client_mode))[24], &_CreateMove, (PVOID*)&CreateMoveOriginal);
+	MH_CreateHook((*(PVOID**)(interfaces.panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
+	MH_CreateHook((*(PVOID**)(interfaces.events))[9], &_GameEvents, (PVOID*)&GameEventsOriginal);
+	MH_CreateHook((*(PVOID**)(interfaces.sound))[5], &_EmitSound, (PVOID*)&EmitSoundOriginal);
+	MH_EnableHook(NULL);
 }
 template <class T>
 T CreateInterface(PVOID m_pModule, LPCSTR m_szInterface) {
@@ -839,7 +794,7 @@ VOID WINAPI Init (HMODULE mod) {
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
 	printf("singlefile v1.3 beta: loading... (compiled with %d lines of code)\n", GetLineCount());
-	csgo_window = FindWindowA("Valve001", nullptr);
+	csgo_window = FindWindowA("Valve001", NULL);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
 	engine_dll = GetModuleHandleA("engine.dll");
@@ -863,8 +818,8 @@ VOID WINAPI Init (HMODULE mod) {
 	printf("finished loading.\n");
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
-	MH_DisableHook(MH_ALL_HOOKS);
-	MH_RemoveHook(MH_ALL_HOOKS);
+	MH_DisableHook(NULL); // NULL = all hooks
+	MH_RemoveHook(NULL);
 	MH_Uninitialize();
 	FreeConsole();
 }
