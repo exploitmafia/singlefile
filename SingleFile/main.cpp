@@ -65,8 +65,11 @@ unsigned char* PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 }
 #undef DrawText
 #undef CreateFont
-template <typename I>
-__forceinline I v(PVOID iface, DWORD index) { return (I)((*(DWORD**)iface)[index]); }
+
+template <typename I, std::size_t Idx, typename ...Args>
+__forceinline I v(PVOID iface, Args... args) { return (*reinterpret_cast<I(__thiscall***)(void*, Args...)>(iface))[Idx](iface, args...); }
+#define VIRTUAL_METHOD(returnType, name, idx, args, argsRaw) __forceinline returnType name args { return v<returnType, idx>argsRaw; }
+
 using matrix_t = FLOAT[3][4];
 using matrix4x4_t = FLOAT[4][4];
 // config system
@@ -142,36 +145,16 @@ struct SPlayerInfo {
 };
 class CMatSystemSurface {
 public:
-	__forceinline VOID DrawFilledRect(DWORD x, DWORD y, DWORD w, DWORD h) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, DWORD, DWORD, DWORD)>(this, 16)(this, x, y, x + w, y + h);
-	}
-	__forceinline VOID SetColor(USHORT r, USHORT g, USHORT b, USHORT a) {
-		return v<VOID(__thiscall*)(PVOID, USHORT, USHORT, USHORT, USHORT)>(this, 15)(this, r, g, b, a);
-	}
-	__forceinline VOID SetTextColor(USHORT r, USHORT g, USHORT b, USHORT a) {
-		return v<VOID(__thiscall*)(PVOID, USHORT, USHORT, USHORT, USHORT)>(this, 25)(this, r, g, b, a);
-	}
-	__forceinline VOID SetTextPosition(DWORD x, DWORD y) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, DWORD)>(this, 26)(this, x, y);
-	}
-	__forceinline VOID DrawText(LPCWSTR text, DWORD len) {
-		return v<VOID(__thiscall*)(PVOID, LPCWSTR, DWORD, DWORD)>(this, 28)(this, text, len, 0);
-	}
-	__forceinline DWORD CreateFont() {
-		return v<DWORD(__thiscall*)(PVOID)>(this, 71)(this);
-	}
-	__forceinline BOOLEAN SetFontGlyphs(DWORD _font, LPCSTR name, DWORD height, DWORD weight, DWORD font_flags) {
-		return v<BOOLEAN(__thiscall*)(PVOID, DWORD, LPCSTR, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD)>(this, 72)(this, _font, name, height, weight, 0, 0, font_flags, 0, 0);
-	}
-	__forceinline VOID SetTextFont(DWORD _font) {
-		return v<VOID(__thiscall*)(PVOID, DWORD)>(this, 23)(this, _font);
-	}
-	__forceinline VOID DrawRectOutline(DWORD x, DWORD y, DWORD w, DWORD h) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, DWORD, DWORD, DWORD)>(this, 18)(this, x, y, x + w, y + h);
-	}
-	__forceinline VOID GetTextSize(DWORD _font, LPCWSTR text, DWORD& w, DWORD& h) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, LPCWSTR, DWORD&, DWORD&)>(this, 79)(this, _font, text, w, h);
-	}
+	VIRTUAL_METHOD(VOID, DrawFilledRect, 16, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h))
+	VIRTUAL_METHOD(VOID, SetColor, 15, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a))
+	VIRTUAL_METHOD(VOID, SetTextColor, 25, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a))
+	VIRTUAL_METHOD(VOID, SetTextPosition, 26, (DWORD x, DWORD y), (this, x, y))
+	VIRTUAL_METHOD(VOID, DrawText, 28, (LPCWSTR text, DWORD len), (this, text, len, 0))
+	VIRTUAL_METHOD(DWORD, CreateFont, 71, (), (this))
+	VIRTUAL_METHOD(BOOLEAN, SetFontGlyphs, 72, (DWORD _font, LPCSTR name, DWORD height, DWORD weight, DWORD font_flags), (this, _font, name, height, weight, 0, 0, font_flags, 0, 0))
+	VIRTUAL_METHOD(VOID, SetTextFont, 23, (DWORD _font), (this, _font))
+	VIRTUAL_METHOD(VOID, DrawRectOutline, 18, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h))
+	VIRTUAL_METHOD(VOID, GetTextSize, 79, (DWORD _font, LPCWSTR text, DWORD& w, DWORD& h), (this, _font, text, std::ref(w), std::ref(h)))
 };
 enum EMoveType {
 	NONE = 0,
@@ -198,20 +181,18 @@ public:
 	__forceinline PVOID GetNetworkable() {
 		return (PVOID)(this + 0x8);
 	}
-	__forceinline CCSClientClass* GetClientClass() {
-		PVOID networkable = this->GetNetworkable();
-		return v<CCSClientClass*(__thiscall*)(PVOID)>(networkable, 2)(networkable);
-	}
-	
+
+	VIRTUAL_METHOD(CCSClientClass*, GetClientClass, 2, (), (this->GetNetworkable()))
+
 	__forceinline vec3 CollisonMins() { // CBaseEntity::m_Collison::m_vecMins
 		return *(vec3*)(this + 0x328);
 	}
 	__forceinline vec3 CollisonMaxs() { // CBaseEntity::m_Collison::m_vecMaxs
 		return *(vec3*)(this + 0x334);
 	}
-	__forceinline vec3 GetAbsOrigin() {
-		return v<vec3&(__thiscall*)(PVOID)>(this, 10)(this);
-	}
+
+	VIRTUAL_METHOD(vec3&, GetAbsOrigin, 10, (), (this))
+
 	__forceinline vec3 GetViewOffset() { //	CBaseEntity::localdata::m_vecViewOffset
 		return *(vec3*)(this + 0x108);
 	}
@@ -233,12 +214,10 @@ public:
 	__forceinline INT GetHealth() { // CBaseEntity::m_iHealth
 		return *(int*)(this + 0x100);
 	}
-	__forceinline CBaseEntity* GetWeapon() {
-		return v<CBaseEntity* (__thiscall*)(PVOID)>(this, 267)(this);
-	}
-	__forceinline INT GetWeaponType() {
-		return v<int(__thiscall*)(PVOID)>(this, 454)(this);
-	}
+
+	VIRTUAL_METHOD(CBaseEntity*, GetWeapon, 267, (), (this))
+	VIRTUAL_METHOD(INT, GetWeaponType, 454, (), (this))
+
 	__forceinline FLOAT WeaponNextAttack() { // CBaseCombatWeapon::m_flNextPrimaryAttack
 		return *(FLOAT*)(this + 0x3238);
 	}
@@ -248,9 +227,9 @@ public:
 	__forceinline INT GetTeamNumber() {
 		return *(int*)(this + 0xF4);
 	}
-	__forceinline CBaseEntity* GetObserverTarget() {
-		return v<CBaseEntity* (__thiscall*)(PVOID)>(this, 294)(this);
-	}
+
+	VIRTUAL_METHOD(CBaseEntity*, GetObserverTarget, 294, (), (this))
+
 	__forceinline BOOLEAN& IsScoped() {
 		return *(BOOLEAN*)(this + 0x3928);
 	}
@@ -297,87 +276,43 @@ T RelativeToAbsolute(DWORD m_pAddress) {
 }
 class CBaseEntityList {
 public:
-	__forceinline CBaseEntity* GetEntity(INT index) {
-		return v<CBaseEntity* (__thiscall*)(PVOID, int)>(this, 3)(this, index);
-	}
+	VIRTUAL_METHOD(CBaseEntity*, GetEntity, 3, (INT index), (this, index))
 };
 class IVEngineClient {
 public:
-	__forceinline INT GetMaxClients() {
-		return v<int(__thiscall*)(PVOID)>(this, 20)(this);
-	}
-	__forceinline VOID GetScreenSize(DWORD& w, DWORD& h) {
-		return v<VOID(__thiscall*)(PVOID, DWORD&, DWORD&)>(this, 5)(this, w, h);
-	}
-	__forceinline BOOLEAN GetPlayerInfo(INT idx, SPlayerInfo* info) {
-		return v<BOOLEAN(__thiscall*)(PVOID, INT, SPlayerInfo*)>(this, 8)(this, idx, info);
-	}
-	__forceinline DWORD GetLocalPlayer() {
-		return v<DWORD(__thiscall*)(PVOID)>(this, 12)(this);
-	}
-	__forceinline BOOLEAN IsInGame() {
-		return v<BOOLEAN(__thiscall*)(PVOID)>(this, 26)(this);
-	}
-	__forceinline matrix4x4_t& GetViewMatrix() {
-		return v<matrix4x4_t& (__thiscall*)(PVOID)>(this, 37)(this);
-	}
-	__forceinline VOID ClientCmdUnrestricted(LPCSTR szCommand) {
-		return v<VOID(__thiscall*)(PVOID, LPCSTR, BOOLEAN)>(this, 114)(this, szCommand, FALSE);
-	}
-	__forceinline LPCSTR GetVersionString() {
-		return v<LPCSTR (__thiscall*)(PVOID)>(this, 105)(this);
-	}
-	__forceinline INT GetPlayerIndex(INT m_nIndex) {
-		return v<int(__thiscall*)(PVOID, int)>(this, 9)(this, m_nIndex);
-	}
+	VIRTUAL_METHOD(INT, GetMaxClients, 20, (), (this))
+	VIRTUAL_METHOD(VOID, GetScreenSize, 5, (DWORD& w, DWORD& h), (this, std::ref(w), std::ref(h)))
+	VIRTUAL_METHOD(BOOLEAN, GetPlayerInfo, 8, (INT idx, SPlayerInfo* info), (this, idx, info))
+	VIRTUAL_METHOD(DWORD, GetLocalPlayer, 12, (), (this))
+	VIRTUAL_METHOD(BOOLEAN, IsInGame, 26, (), (this))
+	VIRTUAL_METHOD(matrix4x4_t&, GetViewMatrix, 37, (), (this))
+	VIRTUAL_METHOD(VOID, ClientCmdUnrestricted, 114, (LPCSTR szCommand), (this, szCommand, FALSE))
+	VIRTUAL_METHOD(LPCSTR, GetVersionString, 105, (), (this))
+	VIRTUAL_METHOD(INT, GetPlayerIndex, 9, (INT m_nIndex), (this, m_nIndex))
 };
 class IGameEvent {
 public:
-	__forceinline LPCSTR GetName() {
-		return v<LPCSTR(__thiscall*)(PVOID)>(this, 1)(this);
-	}
-	__forceinline BOOLEAN GetBool(LPCSTR keyName) {
-		return v<BOOLEAN(__thiscall*)(PVOID, LPCSTR, BOOLEAN)>(this, 5)(this, keyName, FALSE);
-	}
-	__forceinline INT GetInt(LPCSTR keyName) {
-		return v<int(__thiscall*)(PVOID, LPCSTR, int)>(this, 6)(this, keyName, 0);
-	}
+	VIRTUAL_METHOD(LPCSTR, GetName, 1, (), (this))
+	VIRTUAL_METHOD(BOOLEAN, GetBool, 5, (LPCSTR keyName), (this, keyName, FALSE))
+	VIRTUAL_METHOD(INT, GetInt, 6, (LPCSTR keyName), (this, keyName, 0))
 };
 class IPanel {
 public:
-	__forceinline VOID SetInputKeyboardState(DWORD PanelID, BOOLEAN State) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, BOOLEAN)>(this, 31)(this, PanelID, State);
-	}
-	__forceinline VOID SetInputMouseState(DWORD PanelID, BOOLEAN State) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, BOOLEAN)>(this, 32)(this, PanelID, State);
-	}
-	__forceinline LPCSTR GetPanelName(DWORD PanelID) {
-		return v<LPCSTR (__thiscall*)(PVOID, DWORD)>(this, 36)(this, PanelID);
-	}
+	VIRTUAL_METHOD(VOID, SetInputKeyboardState, 31, (DWORD PanelID, BOOLEAN State), (this, PanelID, State))
+	VIRTUAL_METHOD(VOID, SetInputMouseState, 32, (DWORD PanelID, BOOLEAN State), (this, PanelID, State))
+	VIRTUAL_METHOD(LPCSTR, GetPanelName, 36, (DWORD PanelID), (this, PanelID))
 };
 class CConvar {
 public:
-	__forceinline FLOAT GetFloat() {
-		return v<FLOAT(__thiscall*)(PVOID)>(this, 12)(this);
-	}
-	__forceinline INT GetInt() {
-		return v<int(__thiscall*)(PVOID)>(this, 13)(this);
-	}
-	__forceinline VOID SetValue(LPCSTR value) {
-		return v<VOID(__thiscall*)(PVOID, LPCSTR)>(this, 14)(this, value);
-	}
-	__forceinline VOID SetValue(FLOAT value) {
-		return v<VOID(__thiscall*)(PVOID, FLOAT)>(this, 15)(this, value);
-	}
-	__forceinline VOID SetValue(INT value) {
-		return v<VOID(__thiscall*)(PVOID, int)>(this, 16)(this, value);
-	}
+	VIRTUAL_METHOD(FLOAT, GetFloat, 12, (), (this))
+	VIRTUAL_METHOD(INT, GetInt, 13, (), (this))
+	VIRTUAL_METHOD(VOID, SetValue, 14, (LPCSTR value), (this, value))
+	VIRTUAL_METHOD(VOID, SetValue, 15, (FLOAT value), (this, value))
+	VIRTUAL_METHOD(VOID, SetValue, 16, (INT value), (this, value))
 };
 class ICVar {
 public:
-	__forceinline CConvar* FindVar(LPCSTR name) {
-		return v<CConvar* (__thiscall*)(PVOID, LPCSTR)>(this, 15)(this, name);
-	}
+	VIRTUAL_METHOD(CConvar*, FindVar, 15, (LPCSTR name), (this, name))
 };
 class CRecvProp;
 class CClientClass {
@@ -391,12 +326,8 @@ public:
 };
 class IClient {
 public:
-	__forceinline CClientClass* GetClientClasses() {
-		return v<CClientClass* (__thiscall*)(PVOID)>(this, 8)(this);
-	}
-	__forceinline BOOLEAN DispatchUserMessage(INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData) {
-		return v<BOOLEAN(__thiscall*)(PVOID, INT, INT, INT, PVOID)>(this, 38)(this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData);
-	}
+	VIRTUAL_METHOD(CClientClass*, GetClientClasses, 8, (), (this))
+	VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
 };
 class IClientModeShared;
 class IGameEventManager2;
@@ -911,14 +842,10 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 }
 VOID LoadHooks() {
 	MH_Initialize();
-	PVOID CreateMoveAddress = v<PVOID>(interfaces.client_mode, 24);
-	PVOID PaintTraverseAddress = v<PVOID>(interfaces.panel, 41);
-	PVOID FireGameEventsAddress = v<PVOID>(interfaces.events, 9);
-	PVOID EmitSoundAddress = v<PVOID>(interfaces.sound, 5);
-	MH_CreateHook(CreateMoveAddress, &_CreateMove, (PVOID*)&CreateMoveOriginal);
-	MH_CreateHook(PaintTraverseAddress, &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
-	MH_CreateHook(FireGameEventsAddress, &_GameEvents, (PVOID*)&GameEventsOriginal);
-	MH_CreateHook(EmitSoundAddress, &_EmitSound, (PVOID*)&EmitSoundOriginal);
+	MH_CreateHook((*reinterpret_cast<PVOID**>(interfaces.client_mode))[24], &_CreateMove, (PVOID*)&CreateMoveOriginal);
+	MH_CreateHook((*reinterpret_cast<PVOID**>(interfaces.panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
+	MH_CreateHook((*reinterpret_cast<PVOID**>(interfaces.events))[9], &_GameEvents, (PVOID*)&GameEventsOriginal);
+	MH_CreateHook((*reinterpret_cast<PVOID**>(interfaces.sound))[5], &_EmitSound, (PVOID*)&EmitSoundOriginal);
 	MH_EnableHook(MH_ALL_HOOKS);
 }
 template <class T>
