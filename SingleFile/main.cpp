@@ -13,20 +13,7 @@ INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
 #define TriggerBotKEY VK_MBUTTON // 0 for no key or a vk code (ex. ALT = VK_LMENU, see https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
 typedef enum MH_STATUS
 {
-	MH_UNKNOWN = -1,
-	MH_OK = 0,
-	MH_ERROR_ALREADY_INITIALIZED,
-	MH_ERROR_NOT_INITIALIZED,
-	MH_ERROR_ALREADY_CREATED,
-	MH_ERROR_NOT_CREATED,
-	MH_ERROR_ENABLED,
-	MH_ERROR_DISABLED,
-	MH_ERROR_NOT_EXECUTABLE,
-	MH_ERROR_UNSUPPORTED_FUNCTION,
-	MH_ERROR_MEMORY_ALLOC,
-	MH_ERROR_MEMORY_PROTECT,
-	MH_ERROR_MODULE_NOT_FOUND,
-	MH_ERROR_FUNCTION_NOT_FOUND
+	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
 }
 MH_STATUS; // get min hook here: https://github.com/TsudaKageyu/minhook | License for minhook (text of license has not been modified, just newlines removed) : /* MinHook - The Minimalistic API Hooking Library for x64 / x86 * Copyright(C) 2009 - 2017 Tsuda Kageyu. * All rights reserved. * *Redistribution and use in source and binary forms, with or without * modification, are permitted provided that the following conditions * are met : * *1. Redistributions of source code must retain the above copyright * notice, this list of conditionsand the following disclaimer. * 2. Redistributions in binary form must reproduce the above copyright * notice, this list of conditionsand the following disclaimer in the * documentationand /or other materials provided with the distribution. * *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A * PARTICULAR PURPOSE ARE DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER * OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, * EXEMPLARY, OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, *PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT(INCLUDING * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. * /
 #define MH_ALL_HOOKS NULL
@@ -39,20 +26,20 @@ extern "C" {
 	MH_STATUS WINAPI MH_DisableHook(LPVOID pTarget);
 }
 
-unsigned char* PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
+PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 	LPCSTR pat = m_szSignature;
-	unsigned char* first_match = 0x0;
+	PBYTE first_match = 0x0;
 	PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)m_pModule;
 	PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((char*)m_pModule + dos->e_lfanew);
-	for (unsigned char* current = (unsigned char*)m_pModule; current < (unsigned char*)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
-		if (*(unsigned char*)pat == '\?' || *(unsigned char*)current == GET_BYTE(pat)) {
+	for (PBYTE current = (PBYTE)m_pModule; current < (PBYTE)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
+		if (*(PBYTE)pat == '\?' || *(PBYTE)current == GET_BYTE(pat)) {
 			if (!*pat)
 				return first_match;
 			if (!first_match)
 				first_match = current;
 			if (!pat[0x2])
 				return first_match;
-			pat += (*(USHORT*)pat == (USHORT)'\?\?' || *(unsigned char*)pat != (unsigned char)'\?') ? 0x3 : 0x2;
+			pat += (*(PUSHORT)pat == (USHORT)'\?\?' || *(PBYTE)pat != (BYTE)'\?') ? 0x3 : 0x2;
 		}
 		else {
 			if (first_match != 0x0)
@@ -61,7 +48,7 @@ unsigned char* PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 			first_match = 0x0;
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 #undef DrawText
 #undef CreateFont
@@ -199,8 +186,8 @@ public:
 	__forceinline vec3 GetEyePosition() {
 		return (this->GetAbsOrigin() + this->GetViewOffset());
 	}
-	__forceinline unsigned char IsDormant() { // client.dll!8A 81 ? ? ? ? C3 32 C0 + 0x2
-		return *(unsigned char*)(this + 0xED);
+	__forceinline BOOLEAN IsDormant() { // client.dll!8A 81 ? ? ? ? C3 32 C0 + 0x2
+		return *(BOOLEAN*)(this + 0xED);
 	}
 	__forceinline BOOLEAN IsInImmunity() { // CCSPlayer::m_bHasGunGameImmunity
 		return *(BOOLEAN*)(this + 0x3944);
@@ -505,7 +492,7 @@ VOID RenderMenu() {
 
 class CUserCmd {
 private:
-	unsigned char pad_0x0[0x4];
+	BYTE pad_0x0[0x4];
 public:
 	int			m_nCommandNumber;
 	int			m_nTickCount;
@@ -523,7 +510,7 @@ public:
 	short		m_shMouseDY;
 	BOOLEAN		m_bHasBeenPredicted;
 private:
-	unsigned char pad_0x1[0x18];
+	BYTE pad_0x1[0x18];
 };
 
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, CUserCmd*);
@@ -543,8 +530,7 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	if (uMsg == WM_MOUSEMOVE) {
 		menu::move((INT)((SHORT)(LOWORD(lParam))), (INT)((SHORT)(HIWORD(lParam))));
 		menu::inmove = TRUE;
-	}
-	else {
+	} else {
 		menu::inmove = FALSE;
 	}
 	return CallWindowProc(orig_proc, hWnd, uMsg, wParam, lParam);
@@ -634,7 +620,7 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 	const vec3 min = player->CollisonMins();
 	const vec3 max = player->CollisonMaxs();
 	vec3 vecTransScreen[8];
-	vec3 poINTs[] = {
+	vec3 points[] = {
 		vec3(min.x, min.y, min.z),
 		vec3(min.x, max.y, min.z),
 		vec3(max.x, max.y, min.z),
@@ -645,18 +631,11 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 		vec3(max.x, min.y, max.z)
 	};
 	for (INT i = 0; i <= 7; i++) {
-		if (!WorldToScreen(VectorTransform(poINTs[i], rgflTransFrame), vecTransScreen[i]))
+		if (!WorldToScreen(VectorTransform(points[i], rgflTransFrame), vecTransScreen[i]))
 			return FALSE;
 	}
 	vec3 vecBoxes[] = {
-		vecTransScreen[3],
-		vecTransScreen[5], 
-		vecTransScreen[0], 
-		vecTransScreen[4],
-		vecTransScreen[2], 
-		vecTransScreen[1],
-		vecTransScreen[6],
-		vecTransScreen[7] 
+		vecTransScreen[3], vecTransScreen[5], vecTransScreen[0], vecTransScreen[4], vecTransScreen[2], vecTransScreen[1], vecTransScreen[6], vecTransScreen[7] 
 	};
 	FLOAT flLeft = vecTransScreen[3].x, flBottom = vecTransScreen[3].y, flRight = vecTransScreen[3].x, flTop = vecTransScreen[3].y;
 	for (INT i = 0; i <= 7; i++) {
@@ -742,13 +721,13 @@ VOID cvars() {
 	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config.misc.m_bRecoilCrosshair ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
 	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config.misc.m_bNoScopeCrosshair) && !localplayer->IsScoped()) ? 2 : 0);
 }
-INT b = 0;
 VOID speclist() {
 	if (!interfaces.engine->IsInGame())
 		return;
 	CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
 	if (!localplayer)
 		return;
+	static INT b = 0;
 	if (config.misc.m_bSpectatorList) {
 		for (INT i = 1; i <= interfaces.engine->GetMaxClients(); i++) {
 			CBaseEntity* entity = interfaces.entitylist->GetEntity(i);
@@ -859,7 +838,7 @@ VOID WINAPI Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.2: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.3 beta: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", nullptr);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
@@ -868,7 +847,7 @@ VOID WINAPI Init (HMODULE mod) {
 	PVOID vgui2_dll = GetModuleHandleA("vgui2.dll");
 	PVOID vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
-	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.6"))
+	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.7"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are experiencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
