@@ -10,9 +10,7 @@
 PVOID client_dll = NULL;
 PVOID engine_dll = NULL;
 INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
-#define TriggerBotKEY VK_MBUTTON // 0 for no key or a vk code (ex. ALT = VK_LMENU, see https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
-typedef enum MH_STATUS
-{
+typedef enum MH_STATUS {
 	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
 }
 MH_STATUS; // get min hook here: https://github.com/TsudaKageyu/minhook | License for minhook (text of license has not been modified, just newlines removed) : /* MinHook - The Minimalistic API Hooking Library for x64 / x86 * Copyright(C) 2009 - 2017 Tsuda Kageyu. * All rights reserved. * *Redistribution and use in source and binary forms, with or without * modification, are permitted provided that the following conditions * are met : * *1. Redistributions of source code must retain the above copyright * notice, this list of conditionsand the following disclaimer. * 2. Redistributions in binary form must reproduce the above copyright * notice, this list of conditionsand the following disclaimer in the * documentationand /or other materials provided with the distribution. * *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A * PARTICULAR PURPOSE ARE DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER * OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, * EXEMPLARY, OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, *PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT(INCLUDING * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. * /
@@ -24,7 +22,6 @@ extern "C" {
 	MH_STATUS WINAPI MH_EnableHook(LPVOID pTarget);
 	MH_STATUS WINAPI MH_DisableHook(LPVOID pTarget);
 }
-
 PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 	LPCSTR pat = m_szSignature;
 	PBYTE first_match = 0x0;
@@ -39,8 +36,7 @@ PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 			if (!pat[0x2])
 				return first_match;
 			pat += (*(PUSHORT)pat == (USHORT)'\?\?' || *(PBYTE)pat != (BYTE)'\?') ? 0x3 : 0x2;
-		}
-		else {
+		} else {
 			if (first_match != 0x0)
 				current = first_match;
 			pat = m_szSignature;
@@ -51,7 +47,6 @@ PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 }
 #undef DrawText
 #undef CreateFont
-
 template <typename I, std::size_t Idx, typename ...Args>
 __forceinline I v(PVOID iface, Args... args) { return (*(I(__thiscall***)(void*, Args...))(iface))[Idx](iface, args...); }
 #define VIRTUAL_METHOD(returnType, name, idx, args, argsRaw) __forceinline returnType name args { return v<returnType, idx>argsRaw; }
@@ -65,6 +60,8 @@ struct sconfig {
 	struct saim {
 		BOOLEAN m_bTriggerbot;
 		BOOLEAN m_bAutoPistol;
+		INT     m_nTriggerKey = VK_MBUTTON;
+		BOOLEAN m_bTriggerKey;
 	}aimbot;
 	struct svisuals {
 		BOOLEAN m_bBoxESP;
@@ -194,17 +191,17 @@ public:
 class CGlobalVarsBase {
 public:
 	FLOAT			m_flRealTime;
-	int				m_nFrameCount;
+	INT				m_nFrameCount;
 	FLOAT			m_flAbsFrameTime;
 	FLOAT			m_flAbsFrameStart;
 	FLOAT			m_flCurrentTime;
 	FLOAT			m_flFrameTime;
-	int				m_nMaxClients;
-	int				m_nTickCount;
+	INT				m_nMaxClients;
+	INT				m_nTickCount;
 	FLOAT			m_flTickInterval;
 	FLOAT			m_flInteropolationAmount;
-	int				m_nTicksThisFrmae;
-	int				m_nNetworkProtocol;
+	INT				m_nTicksThisFrmae;
+	INT          	m_nNetworkProtocol;
 	PVOID			m_pGameSaveData;
 	BOOLEAN			m_bClient;
 	BOOLEAN			m_bRemoteClient;
@@ -470,13 +467,13 @@ VOID RenderMenu() {
 	menu::checkbox(L"auto accept", &config.misc.m_bAutoAccept);
 	menu::column(184);
 	menu::checkbox(L"triggerbot", &config.aimbot.m_bTriggerbot);
+	menu::checkbox(L"trigger key", &config.aimbot.m_bTriggerKey);
+	menu::keybinder(&config.aimbot.m_nTriggerKey);
 	menu::checkbox(L"radar", &config.visuals.m_bRadar);
 	menu::checkbox(L"disable keyboard in menu", &config.misc.m_bGameKeyboard);
 	menu::checkbox(L"rank revealer", &config.visuals.m_bRankRevealer);
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
-	static int t = VK_LBUTTON;
-	menu::keybinder(&t);
 	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
 		load("singlefile");
 	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
@@ -751,7 +748,7 @@ VOID triggerbot(CUserCmd* cmd) {
 	if (!lp || (lp->GetHealth() < 1) || !lp->CrosshairTarget())
 		return;
 	CBaseEntity* target = interfaces.entitylist->GetEntity((lp->CrosshairTarget()));
-	if (TriggerBotKEY && !GetAsyncKeyState(TriggerBotKEY))
+	if (config.aimbot.m_bTriggerKey && !GetAsyncKeyState(config.aimbot.m_nTriggerKey))
 		return;
 	if (!target->GetHealth() || lp->FlashDuration() > 0.1f || !lp->GetWeapon()->Ammo() || lp->GetWeapon()->WeaponNextAttack() > interfaces.globals->m_flCurrentTime || (!lp->IsScoped() && lp->GetWeapon()->GetWeaponType() == 5) || lp->GetTeamNumber() == target->GetTeamNumber()) // dumbass "hitchance" calculation but it's close enough ig
 		return;
@@ -853,9 +850,6 @@ VOID WINAPI Init (HMODULE mod) {
 	interfaces.globals = **(CGlobalVarsBase***)((*(DWORD**)(interfaces.client))[0xB] + 0xA);
 	SetupFonts();
 	LoadHooks();
-	DWORD t, a;
-	interfaces.surface->GetTextSize(menu::font, L"...", t, a);
-	printf("sz: %d\n", a);
 	printf("finished loading.\n");
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
