@@ -84,6 +84,7 @@ struct sconfig {
 		BOOLEAN m_bGameKeyboard;
 		BOOLEAN m_bSpectatorList;
 		BOOLEAN m_bUseSpam;
+		BOOLEAN m_bVoteRevealer;
 	}misc;
 }config;
 class vec3 {
@@ -265,7 +266,7 @@ public:
 };
 class IClient {
 public:
-	VIRTUAL_METHOD(CClientClass*, GetClientClasses, 8, (), (this))
+	VIRTUAL_METHOD(CClientClass*, GetClientClasses, 8, (VOID), (this))
 	VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
 };
 class IClientModeShared;
@@ -474,6 +475,7 @@ VOID RenderMenu() {
 	menu::checkbox(L"rank revealer", &config.visuals.m_bRankRevealer);
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
+	menu::checkbox(L"vote revealer", &config.misc.m_bVoteRevealer);
 	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
 		load("singlefile");
 	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
@@ -507,6 +509,7 @@ BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, CUserCmd*);
 VOID(__thiscall* PaintTraverseOriginal)(IPanel*, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
 VOID(WINAPI* EmitSoundOriginal)(PVOID, INT, INT, LPCSTR, DWORD, LPCSTR, FLOAT, INT, INT, INT, INT, const vec3&, const vec3&, PVOID, BOOLEAN, FLOAT, INT, PVOID);
+BOOLEAN(__thiscall* DispatchUserMessageOriginal)(PVOID, INT, INT, INT, PVOID);
 LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (uMsg == WM_KEYDOWN) {
@@ -532,6 +535,20 @@ enum {
 	IN_SCORE = 1 << 16,
 	IN_COUNT = 1 << 26,
 };
+void(*Msg)(LPCSTR, ...);
+VOID voterevealer(IGameEvent* evt = NULL, PVOID data = NULL) {
+	if (!config.misc.m_bVoteRevealer || !interfaces.engine->IsInGame())
+		return;
+	if (evt) {
+		CBaseEntity* pEntity = interfaces.entitylist->GetEntity(evt->GetInt("entityid"));
+		if (!pEntity || pEntity->GetClientClass()->m_nClassID != CCSPlayer)
+			return;
+		BOOLEAN bF1d = (!evt->GetBool("vote_option"));
+		SPlayerInfo PlayerInfo;
+		interfaces.engine->GetPlayerInfo(evt->GetInt("entityid"), &PlayerInfo);
+		Msg("[singlefile]: %s voted %s.", PlayerInfo.m_szName, bF1d ? "Yes" : "No");
+	}
+}
 VOID bhop(CUserCmd* cmd) {
 	if (config.misc.m_bBhop) {
 		CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
@@ -765,11 +782,11 @@ VOID usespam(CUserCmd* cmd) {
 BOOLEAN WINAPI _CreateMove(FLOAT flInputSampleTime, CUserCmd* cmd) {
 	BOOLEAN SetViewAngles = CreateMoveOriginal(flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
-		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option :P
+		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option at some point :P
 		cvars(); // commands that do not to run each tick (i.e don't need usercmd, just dependent on localplayer & being in game)
 	}
 	if (cmd->m_nButtons & IN_SCORE && config.visuals.m_bRankRevealer)
-		interfaces.client->DispatchUserMessage(50, 0, 0, nullptr);
+		interfaces.client->DispatchUserMessage(50, 0, 0, NULL);
 	bhop(cmd);
 	autopistol(cmd);
 	triggerbot(cmd);
@@ -780,19 +797,20 @@ VOID WINAPI _EmitSound(PVOID pFilter, INT nEntityIndex, INT nChannel, LPCSTR szS
 	autoaccept(szSoundEntry);
 	return EmitSoundOriginal(pFilter, nEntityIndex, nChannel, szSoundEntry, dwHash, szSample, flVolume, nSeed, nSoundLevel, nSoundLevel, nPitch, vecOrigin, vecDirection, pvecOrigins, bUpdatePos, flTime, nEntityID, pSoundParams);
 }
-BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
-	if (config.misc.m_bHitSound) {
-		if (strstr(event->GetName(), "player_hurt")) {
-			SPlayerInfo player;
-			interfaces.engine->GetPlayerInfo(interfaces.engine->GetLocalPlayer(), &player);
-			if (event->GetInt("attacker") == player.m_nUserID)
-				interfaces.engine->ClientCmdUnrestricted("play buttons/arena_switch_press_02");
-		}
-	}
-	return GameEventsOriginal(interfaces.events, event);
-}
 DWORD fnv(LPCSTR szString, DWORD nOffset = 0x811C9DC5) {
 	return (*szString == '\0') ? nOffset : fnv(&szString[1], (nOffset ^ DWORD(*szString)) * 0x01000193);
+}
+BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
+	DWORD dwEventHash = fnv(event->GetName());
+	if (config.misc.m_bHitSound && dwEventHash == 0x1B30DDF0) {
+		SPlayerInfo player;
+		interfaces.engine->GetPlayerInfo(interfaces.engine->GetLocalPlayer(), &player);
+		if (event->GetInt("attacker") == player.m_nUserID)
+			interfaces.engine->ClientCmdUnrestricted("play buttons/arena_switch_press_02");
+	}
+	if (dwEventHash == 0xFDAD5FE5 && config.misc.m_bVoteRevealer)
+		voterevealer(event);
+	return GameEventsOriginal(interfaces.events, event);
 }
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) {
 	DWORD drawing = fnv(interfaces.panel->GetPanelName(dwPanel));
@@ -848,9 +866,12 @@ VOID WINAPI Init (HMODULE mod) {
 	interfaces.sound = CreateInterface<ISound*>(engine_dll, "IEngineSoundClient003");
 	interfaces.client_mode = **(IClientModeShared***)((*(DWORD**)(interfaces.client))[0xA] + 0x5);
 	interfaces.globals = **(CGlobalVarsBase***)((*(DWORD**)(interfaces.client))[0xB] + 0xA);
+	Msg = (decltype(Msg))GetProcAddress(GetModuleHandleA("tier0.dll"), "Msg");
 	SetupFonts();
 	LoadHooks();
 	printf("finished loading.\n");
+	printf("h: 0x%X\n", fnv("vote_cast"));
+	printf("h: 0x%X\n", fnv("player_hurt"));
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
 	MH_DisableHook(NULL); // NULL = all hooks
