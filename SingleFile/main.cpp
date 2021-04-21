@@ -295,18 +295,20 @@ struct vec2 {
 		this->y = y;
 	}
 };
-VOID load() {
-	FILE* cfg = fopen("singlefile.cfg", "r");
+VOID load(LPCSTR szConfigName) {
+	FILE* cfg = fopen(szConfigName, "r");
 	fread(&config, sizeof(config), 1, cfg);
 	fclose(cfg);
 }
-VOID save() {
-	FILE* cfg = fopen("singlefile.cfg", "w");
+VOID save(LPCSTR szConfigName) {
+	FILE* cfg = fopen(szConfigName, "w");
 	fwrite(&config, sizeof(config), 1, cfg);
 	fclose(cfg);
 }
 namespace menu {
-	std::unordered_map<LPCWSTR, BOOLEAN> item_clicks = {};
+	struct sctx { BOOLEAN open; INT width; };
+	std::unordered_map < LPCWSTR, BOOLEAN> item_clicks = {};
+	std::unordered_map<PINT, sctx> Keys = {}; // I hate these stl containers but whatever its convienent for line count & index by pointer location rather than a custom id, this assumes you won't be having two keybinders with the same value
 	DWORD font, esp;
 	vec2 start_pos, size;
 	BOOLEAN dragging = FALSE, clicked = FALSE, item_active = FALSE, inmove = FALSE;
@@ -316,7 +318,7 @@ namespace menu {
 	}
 	BOOLEAN clicked_at( LPCWSTR n, INT x, INT y, INT w, INT h ) {
 		if (item_clicks.count(n) == 0) item_clicks[n] = FALSE;
-		if (!in_region(x, y, w, h) && !item_clicks[n] || menu::inmove) return FALSE;
+		if (!in_region(x, y, w, h) && !item_clicks[n] || inmove) return FALSE;
 		item_active = TRUE;
 		if (clicked) {
 			BOOLEAN ret = !item_clicks[n];
@@ -328,6 +330,7 @@ namespace menu {
 	}
 	VOID window(LPCWSTR name) {
 		item_active = FALSE;
+		interfaces.surface->SetTextFont(menu::font);
 		interfaces.surface->SetColor(23, 23, 30, 255);
 		interfaces.surface->DrawRectOutline(start_pos.x - 1, start_pos.y - 1, size.x + 2, size.y + 2);
 		interfaces.surface->SetColor(62, 62, 72, 255);
@@ -343,7 +346,6 @@ namespace menu {
 		interfaces.surface->SetColor(60, 60, 70, 255);
 		interfaces.surface->DrawFilledRect(start_pos.x + 6, start_pos.y + 20, size.x - 12, 1);
 		interfaces.surface->SetTextColor(255, 255, 255, 255);
-		interfaces.surface->SetTextFont(menu::font);
 		static DWORD u, i;
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition( start_pos.x + (size.x / 2) - (u / 2), start_pos.y + 6);
@@ -368,7 +370,6 @@ namespace menu {
 		}
 		interfaces.surface->SetTextColor(255, 255, 255, 255);
 		interfaces.surface->SetTextPosition(x_pos + 15, y_pos);
-		interfaces.surface->SetTextFont(menu::font);
 		interfaces.surface->DrawText(name, wcslen(name));
 		if (clicked_at(name, x_pos, y_pos, 12, 12))
 			*option = !(*option);
@@ -382,7 +383,6 @@ namespace menu {
 		interfaces.surface->SetColor(37, 37, 37, 255);
 		interfaces.surface->DrawFilledRect(pos.x + 2, pos.y + 2, size.x - 4, size.y - 4);
 		interfaces.surface->SetTextColor(255, 255, 255, 255);
-		interfaces.surface->SetTextFont(menu::font);
 		DWORD u, i;
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition(pos.x + (size.x / 2) - u / 2, pos.y + (size.y / 2) - i / 2);
@@ -404,6 +404,42 @@ namespace menu {
 			start_pos.y += y - menu::last_mouse_y;
 		}
 		return store();
+	}
+	LPCWSTR pwszVirtualKeys[] = { L"?", L"M1", L"M2", L"BREAK", L"M3", L"M4", L"M5", L"?", L"BACK", L"TAB", L"?", L"?", L"?", L"ENTER", L"?", L"?", L"SHIFT", L"CTRL", L"ALT", L"PAUSE", L"CAPS", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"SPACE", L"PGUP", L"PGDN", L"END", L"HOME", L"LEFT", L"UP", L"RIGHT", L"DOWN", L"?", L"SYSRQ", L"?", L"PRNSCR", L"NONE", L"DEL", L"?", L"0", L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8", L"9", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"A", L"B", L"C", L"D", L"E", L"F", L"G", L"H", L"I", L"J", L"K", L"L", L"M", L"N", L"O", L"P", L"Q", L"R", L"S", L"T", L"U", L"V", L"W", L"X", L"Y", L"Z", L"WIN", L"RWIN", L"?", L"?", L"?", L"NUM 0", L"NUM 1", L"NUM 2", L"NUM 3", L"NUM 4", L"NUM 5", L"NUM 6", L"NUM 7", L"NUM 8", L"NUM 9", L"*", L"+", L"_", L"-", L".", L"/", L"F1", L"F2", L"F3", L"F4", L"F5", L"F6", L"F7", L"F8", L"F9", L"F10", L"F11", L"F12", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", }; // mhhh i'll fill in the rest later
+	VOID keybinder(PINT pKey) { // Pints for the low hello Dex.
+		INT x = x_pos + 180 - Keys[pKey].width;
+		INT y = y_pos - 15;
+		LPCWSTR  wszKeyName = pwszVirtualKeys[*pKey];
+		DWORD w, xh, h = 20;
+		interfaces.surface->GetTextSize(menu::font, wszKeyName, w, xh);
+		Keys[pKey].width = w + 16;
+		interfaces.surface->SetColor(17, 17, 17, 255);
+		interfaces.surface->DrawRectOutline(x, y, Keys[pKey].width, h);
+		interfaces.surface->SetColor(37, 37, 37, 255);
+		interfaces.surface->DrawFilledRect(x + 1, y + 1, Keys[pKey].width - 2, h - 2);
+		interfaces.surface->SetColor(21, 21, 21, 255);
+		interfaces.surface->DrawRectOutline(x + 2, y + 2, Keys[pKey].width - 4, h - 4);
+		interfaces.surface->SetTextColor(255, 255, 255, 255);
+		interfaces.surface->SetTextPosition(x + (Keys[pKey].width / 2) - (w / 2), y + 3);
+		interfaces.surface->DrawText(wszKeyName, wcslen(wszKeyName));
+		if (in_region(x, y, Keys[pKey].width, h) && GetAsyncKeyState(VK_LBUTTON))
+			Keys[pKey].open = TRUE;
+		if (!in_region(x, y, Keys[pKey].width, h) && GetAsyncKeyState(VK_LBUTTON))
+			Keys[pKey].open = FALSE;
+		if (Keys[pKey].open) {
+			interfaces.surface->SetColor(44, 44, 44, 255);
+			interfaces.surface->DrawFilledRect(x + 1, y + 1, Keys[pKey].width - 2, h - 2);
+			interfaces.surface->SetTextPosition(x + (Keys[pKey].width / 2) - 0x6, y + 3); // 0x6 = 12 / 2, 12 is the size of L"..." on the menu.
+			interfaces.surface->DrawText(L"...", 0x3);
+			INT nState = *pKey;
+			for (INT i = 0; i < 256; i++) {
+				USHORT nValue = GetAsyncKeyState(i) & 1;
+				if (nValue && i != nState) {
+					*pKey = i;
+					Keys[pKey].open = FALSE;
+				}
+			}
+		}
 	}
 }
 VOID SetupFonts() {
@@ -439,10 +475,12 @@ VOID RenderMenu() {
 	menu::checkbox(L"rank revealer", &config.visuals.m_bRankRevealer);
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
+	static int t = VK_LBUTTON;
+	menu::keybinder(&t);
 	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
-		load();
+		load("singlefile");
 	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
-		save();
+		save("singlefile");
 }
 
 class CUserCmd {
@@ -813,8 +851,11 @@ VOID WINAPI Init (HMODULE mod) {
 	interfaces.sound = CreateInterface<ISound*>(engine_dll, "IEngineSoundClient003");
 	interfaces.client_mode = **(IClientModeShared***)((*(DWORD**)(interfaces.client))[0xA] + 0x5);
 	interfaces.globals = **(CGlobalVarsBase***)((*(DWORD**)(interfaces.client))[0xB] + 0xA);
-	LoadHooks();
 	SetupFonts();
+	LoadHooks();
+	DWORD t, a;
+	interfaces.surface->GetTextSize(menu::font, L"...", t, a);
+	printf("sz: %d\n", a);
 	printf("finished loading.\n");
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
