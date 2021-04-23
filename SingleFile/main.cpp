@@ -87,9 +87,6 @@ struct sconfig {
 		BOOLEAN m_bDisablePostProcess;
 		BOOLEAN m_bRankRevealer;
 		BOOLEAN m_bFlashReducer;
-		BOOLEAN m_bGlow;
-		BOOLEAN m_bGlowXQZ;
-		BOOLEAN m_bGlowTeam;
 	}visuals;
 	struct smisc {
 		BOOLEAN m_bBhop;
@@ -932,7 +929,7 @@ VOID WINAPI Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.2: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.2.1: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", nullptr);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
@@ -941,7 +938,7 @@ VOID WINAPI Init (HMODULE mod) {
 	PVOID vgui2_dll = GetModuleHandleA("vgui2.dll");
 	PVOID vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
-	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.6"))
+	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.7"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are experiencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
