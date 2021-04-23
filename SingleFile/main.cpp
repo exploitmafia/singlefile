@@ -5,8 +5,8 @@
 #include <unordered_map>
 #pragma comment(lib, "minhook")
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
-#define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
-#define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
+#define GET_BITS(x)        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
+#define GET_BYTE(x)        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
 PVOID client_dll = nullptr;
 PVOID engine_dll = nullptr;
 INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
@@ -87,9 +87,6 @@ struct sconfig {
 		BOOLEAN m_bDisablePostProcess;
 		BOOLEAN m_bRankRevealer;
 		BOOLEAN m_bFlashReducer;
-		BOOLEAN m_bGlow;
-		BOOLEAN m_bGlowXQZ;
-		BOOLEAN m_bGlowTeam;
 	}visuals;
 	struct smisc {
 		BOOLEAN m_bBhop;
@@ -876,9 +873,9 @@ BOOLEAN WINAPI _CreateMove(FLOAT flInputSampleTime, CUserCmd* cmd) {
 	usespam(cmd);
 	return SetViewAngles;
 }
-VOID WINAPI _EmitSound(PVOID pFilter, INT nEntityIndex, INT nChannel, LPCSTR szSoundEntry, DWORD dwHash, LPCSTR szSample, FLOAT flVolume, INT nSeed, INT nSoundLevel, INT nFlags, INT nPitch, const vec3& vecOrigin, const vec3& vecDirection, PVOID pvecOrigins, BOOLEAN bUpdatePos, FLOAT flTime, INT nEntityID, PVOID pSoundParams) { // thank you danielkrupinski/Osiris for these arguments
-	autoaccept(szSoundEntry);
-	return EmitSoundOriginal(pFilter, nEntityIndex, nChannel, szSoundEntry, dwHash, szSample, flVolume, nSeed, nSoundLevel, nSoundLevel, nPitch, vecOrigin, vecDirection, pvecOrigins, bUpdatePos, flTime, nEntityID, pSoundParams);
+void WINAPI _EmitSound(void* filter, int entityIndex, int channel, const char* soundEntry, unsigned int soundEntryHash, const char* sample, float volume, int seed, int soundLevel, int flags, int pitch, const vec3& origin, const vec3& direction, void* utlVecOrigins, bool updatePositions, float soundtime, int speakerentity, void* soundParams) { // thank you danielkrupinski/Osiris for these arguments
+	autoaccept(soundEntry);
+	return EmitSoundOriginal(filter, entityIndex, channel, soundEntry, soundEntryHash, sample, volume, seed, soundLevel, flags, pitch, origin, direction, utlVecOrigins, updatePositions, soundtime, speakerentity, soundParams);
 }
 BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
 	if (config.misc.m_bHitSound) {
@@ -932,7 +929,7 @@ VOID WINAPI Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.2: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.2.1: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", nullptr);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
@@ -941,7 +938,7 @@ VOID WINAPI Init (HMODULE mod) {
 	PVOID vgui2_dll = GetModuleHandleA("vgui2.dll");
 	PVOID vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
-	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.6"))
+	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.7"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are experiencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
