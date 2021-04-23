@@ -46,3 +46,5 @@ adds esp, as well as basic misc.
 adds triggerbot, radar, and other misc functions
 ## v1.2
 adds draggable menu, rank revealer, use spam and flash reducer
+### v1.2.1
+minor bug fixes, increment cs:go version
