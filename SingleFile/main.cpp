@@ -5,8 +5,8 @@
 #include <unordered_map>
 #pragma comment(lib, "minhook")
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
-#define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
-#define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
+#define GET_BITS(x)        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
+#define GET_BYTE(x)        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
 PVOID client_dll = nullptr;
 PVOID engine_dll = nullptr;
 INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
