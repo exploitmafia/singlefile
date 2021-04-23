@@ -1,14 +1,13 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <cstdio>
-#include <string>
+#include <intrin.h>
 #include <unordered_map>
 #pragma comment(lib, "minhook")
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
 #define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
-PVOID client_dll = NULL;
-PVOID engine_dll = NULL;
+PVOID client_dll = NULL;  PVOID engine_dll = NULL; HMODULE pModule = NULL; DWORD dwModuleSize;
 INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
 typedef enum MH_STATUS {
 	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
@@ -26,7 +25,7 @@ PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 	LPCSTR pat = m_szSignature;
 	PBYTE first_match = 0x0;
 	PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)m_pModule;
-	PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((char*)m_pModule + dos->e_lfanew);
+	PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((PBYTE)m_pModule + dos->e_lfanew);
 	for (PBYTE current = (PBYTE)m_pModule; current < (PBYTE)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
 		if (*(PBYTE)pat == '\?' || *(PBYTE)current == GET_BYTE(pat)) {
 			if (!*pat)
@@ -439,7 +438,7 @@ namespace menu {
 			}
 		}
 	}
-}
+}   
 VOID SetupFonts() {
 	menu::font = interfaces.surface->CreateFont();
 	interfaces.surface->SetFontGlyphs(menu::font, "Verdana", 12, 600, 0);
@@ -546,7 +545,7 @@ VOID voterevealer(IGameEvent* evt = NULL, PVOID data = NULL) {
 		BOOLEAN bF1d = (!evt->GetBool("vote_option"));
 		SPlayerInfo PlayerInfo;
 		interfaces.engine->GetPlayerInfo(evt->GetInt("entityid"), &PlayerInfo);
-		Msg("[singlefile]: %s voted %s.", PlayerInfo.m_szName, bF1d ? "Yes" : "No");
+		Msg("[singlefile]: %s voted %s.\n", PlayerInfo.m_szName, bF1d ? "Yes" : "No");
 	}
 }
 VOID bhop(CUserCmd* cmd) {
@@ -870,8 +869,6 @@ VOID WINAPI Init (HMODULE mod) {
 	SetupFonts();
 	LoadHooks();
 	printf("finished loading.\n");
-	printf("h: 0x%X\n", fnv("vote_cast"));
-	printf("h: 0x%X\n", fnv("player_hurt"));
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
 	MH_DisableHook(NULL); // NULL = all hooks
