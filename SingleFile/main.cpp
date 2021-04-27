@@ -478,25 +478,24 @@ VOID RenderMenu() {
 	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
 		save("singlefile");
 }
-
 class CUserCmd {
 private:
 	BYTE pad_0x0[0x4];
 public:
-	int			m_nCommandNumber;
-	int			m_nTickCount;
+  INT			m_nCommandNumber;
+	INT			m_nTickCount;
 	vec3		m_vecAngles;
 	vec3		m_vecDirection;
 	FLOAT		m_flForwardMove;
 	FLOAT		m_flSideMove;
 	FLOAT		m_flUpMove;
-	int			m_nButtons;
-	char		m_chImpulse;
-	int			m_nWeaponSelect;
-	int			m_nWeaponType;
-	short		m_shSeed;
-	short		m_shMouseDX;
-	short		m_shMouseDY;
+	INT			m_nButtons;
+	CHAR		m_chImpulse;
+	INT			m_nWeaponSelect;
+	INT			m_nWeaponType;
+	SHORT		m_shSeed;
+	SHORT		m_shMouseDX;
+	SHORT		m_shMouseDY;
 	BOOLEAN		m_bHasBeenPredicted;
 private:
 	BYTE pad_0x1[0x18];
