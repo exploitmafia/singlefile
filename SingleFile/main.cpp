@@ -7,7 +7,7 @@
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
 #define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
-PVOID client_dll = NULL;  PVOID engine_dll = NULL; HMODULE pModule = NULL; DWORD dwModuleSize;
+PVOID client_dll = NULL;  PVOID engine_dll = NULL; HMODULE pModule = NULL;
 INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
 typedef enum MH_STATUS {
 	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
@@ -28,7 +28,7 @@ PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 	PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((PBYTE)m_pModule + dos->e_lfanew);
 	for (PBYTE current = (PBYTE)m_pModule; current < (PBYTE)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
 		if (*(PBYTE)pat == '\?' || *(PBYTE)current == GET_BYTE(pat)) {
-			if (!*pat)
+			if (!(*pat))
 				return first_match;
 			if (!first_match)
 				first_match = current;
@@ -851,7 +851,7 @@ VOID WINAPI Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.3 beta: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.3: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", NULL);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
