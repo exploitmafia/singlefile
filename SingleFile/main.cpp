@@ -4,11 +4,10 @@
 #include <unordered_map>
 #include <string>
 #pragma comment(lib, "minhook")
-#define IN_RANGE(x,a,b)        (x >= a && x <= b) 
-#define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
-#define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
+#define IN_RANGE(x, a, b)        (x >= a && x <= b) 
+#define GET_BITS(x)        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
+#define GET_BYTE(x)        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
 PVOID client_dll = NULL;  PVOID engine_dll = NULL; HMODULE pModule = NULL;
-INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
 typedef enum MH_STATUS {
 	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
 }
@@ -46,14 +45,13 @@ PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 }
 #undef DrawText
 #undef CreateFont
-template <typename I, std::size_t Idx, typename ...Args>
+template <typename I, unsigned int Idx, typename ...Args>
 __forceinline I v(PVOID iface, Args... args) { return (*(I(__thiscall***)(void*, Args...))(iface))[Idx](iface, args...); }
 #define VIRTUAL_METHOD(returnType, name, idx, args, argsRaw) __forceinline returnType name args { return v<returnType, idx>argsRaw; }
 #define OFFSET(type, name, offset) __forceinline type name(VOID) { return *(type*)(this + offset); }
 #define ROFFSET(type, name, offset) __forceinline type& name(VOID) { return *(type*)(this + offset);} // not sure if there's a better way to do this but whatever
 using matrix_t = FLOAT[3][4];
 using matrix4x4_t = FLOAT[4][4];
-// config system
 BOOLEAN menu_open = TRUE;
 struct sconfig {
 	struct saim {
@@ -539,7 +537,7 @@ VOID voterevealer(IGameEvent* evt = NULL) {
 	if (!config.misc.m_bVoteRevealer || !interfaces.engine->IsInGame())
 		return;
 	CBaseEntity* pEntity = interfaces.entitylist->GetEntity(evt->GetInt("entityid"));
-	if (!pEntity || pEntity->GetClientClass()->m_nClassID != CCSPlayer)
+	if (!pEntity || pEntity->GetClientClass()->m_nClassID != 0x28)
 		return;
 	BOOLEAN bF1d = (!evt->GetBool("vote_option"));
 	SPlayerInfo PlayerInfo;
@@ -675,7 +673,7 @@ VOID players() {
 		return;
 	for (INT i = 1; i <= interfaces.engine->GetMaxClients(); i++) {
 		CBaseEntity* entity = interfaces.entitylist->GetEntity(i);
-		if (!entity || entity->GetHealth() == 0 || entity->GetClientClass()->m_nClassID != CCSPlayer)
+		if (!entity || entity->GetHealth() == 0 || entity->GetClientClass()->m_nClassID != 0x28)
 			continue;
 		if (!(config.visuals.m_bTargetTeam) && entity->GetTeamNumber() == localplayer->GetTeamNumber())
 			continue;
