@@ -2,11 +2,13 @@
 #include <windows.h>
 #include <cstdio>
 #include <unordered_map>
+#include <string>
 #pragma comment(lib, "minhook")
 #define IN_RANGE(x,a,b)        (x >= a && x <= b) 
 #define GET_BITS( x )        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE( x )        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
-PVOID client_dll = NULL;  PVOID engine_dll = NULL; HMODULE pModule = NULL;
+PVOID client_dll = NULL;  PVOID engine_dll = NULL; HMODULE pModule = NULL; DWORD dwModuleSize;
+INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
 typedef enum MH_STATUS {
 	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
 }
@@ -501,7 +503,6 @@ public:
 private:
 	BYTE pad_0x1[0x18];
 };
-
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, CUserCmd*);
 VOID(__thiscall* PaintTraverseOriginal)(IPanel*, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
@@ -532,19 +533,19 @@ enum {
 	IN_SCORE = 1 << 16,
 	IN_COUNT = 1 << 26,
 };
-void(*Msg)(LPCSTR, ...);
-VOID voterevealer(IGameEvent* evt = NULL, PVOID data = NULL) {
+namespace colors { unsigned char green[4] = {0, 255, 0, 255}; unsigned char lightgreen[4] = {10, 200, 10, 255}; unsigned char red[4] = {255, 0, 0, 255}; unsigned char lightred[4] = {200, 10, 10, 255}; };
+void(*ColoredMsg)(PUCHAR, LPCSTR, ...);
+VOID voterevealer(IGameEvent* evt = NULL) {
 	if (!config.misc.m_bVoteRevealer || !interfaces.engine->IsInGame())
 		return;
-	if (evt) {
-		CBaseEntity* pEntity = interfaces.entitylist->GetEntity(evt->GetInt("entityid"));
-		if (!pEntity || pEntity->GetClientClass()->m_nClassID != 0x28)
-			return;
-		BOOLEAN bF1d = (!evt->GetBool("vote_option"));
-		SPlayerInfo PlayerInfo;
-		interfaces.engine->GetPlayerInfo(evt->GetInt("entityid"), &PlayerInfo);
-		Msg("[singlefile]: %s voted %s.\n", PlayerInfo.m_szName, bF1d ? "Yes" : "No");
-	}
+	CBaseEntity* pEntity = interfaces.entitylist->GetEntity(evt->GetInt("entityid"));
+	if (!pEntity || pEntity->GetClientClass()->m_nClassID != CCSPlayer)
+		return;
+	BOOLEAN bF1d = (!evt->GetBool("vote_option"));
+	SPlayerInfo PlayerInfo;
+	interfaces.engine->GetPlayerInfo(evt->GetInt("entityid"), &PlayerInfo);
+	ColoredMsg(bF1d ? colors::lightgreen : colors::lightred, "[singlefile]: %s voted %s.\n", PlayerInfo.m_szName, bF1d ? "Yes" : "No");
+	Beep(bF1d ? 626 : 560, 75);
 }
 VOID bhop(CUserCmd* cmd) {
 	if (config.misc.m_bBhop) {
@@ -584,9 +585,8 @@ VOID flashreducer() {
 	if (localplayer->FlashDuration() > 3.f) {
 		localplayer->FlashMaxAlpha() = 100;
 		interfaces.surface->SetTextColor(255, 100, 100, 255);
-		DWORD w, h;
+		DWORD w, h, tw, th;
 		interfaces.engine->GetScreenSize(w, h);
-		DWORD tw, th;
 		interfaces.surface->GetTextSize(6, L"FLASHED!", tw, th); // first 50 built-in vgui fonts: https://cdn.discordapp.com/attachments/634094496300400641/821827439042101258/unknown.png
 		interfaces.surface->SetTextPosition((DWORD)((w * 0.5f) - tw * 0.5f), (DWORD)(h * 0.75f));
 		interfaces.surface->SetTextFont(6); 
@@ -675,7 +675,7 @@ VOID players() {
 		return;
 	for (INT i = 1; i <= interfaces.engine->GetMaxClients(); i++) {
 		CBaseEntity* entity = interfaces.entitylist->GetEntity(i);
-		if (!entity || entity->GetHealth() == 0 || entity->GetClientClass()->m_nClassID != 0x28)
+		if (!entity || entity->GetHealth() == 0 || entity->GetClientClass()->m_nClassID != CCSPlayer)
 			continue;
 		if (!(config.visuals.m_bTargetTeam) && entity->GetTeamNumber() == localplayer->GetTeamNumber())
 			continue;
@@ -777,11 +777,10 @@ VOID usespam(CUserCmd* cmd) {
 	}
 }
 BOOLEAN __fastcall _DispatchUserMessage(PVOID ecx, PVOID edx, INT nMessageType, INT nArgument, INT nArgument2, PVOID pData) {
-	if (nMessageType == 47)
-		Msg("[singlefile] Vote Passed!");
-	if (nMessageType == 48)
-		Msg("[singlefile] Vote Failed!");
-
+	if (nMessageType == 47 && config.misc.m_bVoteRevealer) {
+		ColoredMsg(colors::green, "[singlefile] Vote Passed!\n"); Beep(670, 50); }
+	if (nMessageType == 48 && config.misc.m_bVoteRevealer) {
+		ColoredMsg(colors::red, "[singlefile] Vote Failed!\n"); Beep(343, 50); }
 	return DispatchUserMessageOriginal(interfaces.client, nMessageType, nArgument, nArgument2, pData);
 }
 BOOLEAN WINAPI _CreateMove(FLOAT flInputSampleTime, CUserCmd* cmd) {
@@ -872,7 +871,7 @@ VOID WINAPI Init (HMODULE mod) {
 	interfaces.sound = CreateInterface<ISound*>(engine_dll, "IEngineSoundClient003");
 	interfaces.client_mode = **(IClientModeShared***)((*(DWORD**)(interfaces.client))[0xA] + 0x5);
 	interfaces.globals = **(CGlobalVarsBase***)((*(DWORD**)(interfaces.client))[0xB] + 0xA);
-	Msg = (decltype(Msg))GetProcAddress(GetModuleHandleA("tier0.dll"), "Msg");
+	ColoredMsg = (decltype(ColoredMsg))GetProcAddress(GetModuleHandleA("tier0.dll"), "?ConColorMsg@@YAXABVColor@@PBDZZ");
 	SetupFonts();
 	LoadHooks();
 	printf("finished loading.\n");
