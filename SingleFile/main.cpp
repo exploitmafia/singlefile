@@ -1,35 +1,17 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
 #include <cstdio>
-#include <string>
 #include <unordered_map>
+#include <string>
 #pragma comment(lib, "minhook")
-#define IN_RANGE(x,a,b)        (x >= a && x <= b) 
+#define IN_RANGE(x, a, b)        (x >= a && x <= b) 
 #define GET_BITS(x)        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE(x)        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
-PVOID client_dll = nullptr;
-PVOID engine_dll = nullptr;
-INT CCSPlayer = 0x28; // ClassID::CCSPlayer = 40;
-#define TriggerBotKEY VK_MBUTTON // 0 for no key or a vk code (ex. ALT = VK_LMENU, see https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes)
-typedef enum MH_STATUS
-{
-	MH_UNKNOWN = -1,
-	MH_OK = 0,
-	MH_ERROR_ALREADY_INITIALIZED,
-	MH_ERROR_NOT_INITIALIZED,
-	MH_ERROR_ALREADY_CREATED,
-	MH_ERROR_NOT_CREATED,
-	MH_ERROR_ENABLED,
-	MH_ERROR_DISABLED,
-	MH_ERROR_NOT_EXECUTABLE,
-	MH_ERROR_UNSUPPORTED_FUNCTION,
-	MH_ERROR_MEMORY_ALLOC,
-	MH_ERROR_MEMORY_PROTECT,
-	MH_ERROR_MODULE_NOT_FOUND,
-	MH_ERROR_FUNCTION_NOT_FOUND
+PVOID client_dll = NULL;  PVOID engine_dll = NULL; HMODULE pModule = NULL;
+typedef enum MH_STATUS {
+	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
 }
-MH_STATUS; // get min hook here: https://github.com/TsudaKageyu/minhook | License for minhook (text of license has not been modified, just newlines removed) : /* MinHook - The Minimalistic API Hooking Library for x64 / x86 * Copyright(C) 2009 - 2017 Tsuda Kageyu. * All rights reserved. * *Redistribution and use in source and binary forms, with or without * modification, are permitted provided that the following conditions * are met : * *1. Redistributions of source code must retain the above copyright * notice, this list of conditionsand the following disclaimer. * 2. Redistributions in binary form must reproduce the above copyright * notice, this list of conditionsand the following disclaimer in the * documentationand /or other materials provided with the distribution. * *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A * PARTICULAR PURPOSE ARE DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER * OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, * EXEMPLARY, OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, *PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT(INCLUDING * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. * /
-#define MH_ALL_HOOKS NULL
+MH_STATUS; // get minhook here: https://github.com/TsudaKageyu/minhook | License for minhook (text of license has not been modified, just newlines removed) : /* MinHook - The Minimalistic API Hooking Library for x64 / x86 * Copyright(C) 2009 - 2017 Tsuda Kageyu. * All rights reserved. * *Redistribution and use in source and binary forms, with or without * modification, are permitted provided that the following conditions * are met : * *1. Redistributions of source code must retain the above copyright * notice, this list of conditionsand the following disclaimer. * 2. Redistributions in binary form must reproduce the above copyright * notice, this list of conditionsand the following disclaimer in the * documentationand /or other materials provided with the distribution. * *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A * PARTICULAR PURPOSE ARE DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER * OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, * EXEMPLARY, OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, *PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT(INCLUDING * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. * /
 extern "C" {
 	MH_STATUS WINAPI MH_Initialize(VOID);
 	MH_STATUS WINAPI MH_Uninitialize(VOID);
@@ -38,43 +20,45 @@ extern "C" {
 	MH_STATUS WINAPI MH_EnableHook(LPVOID pTarget);
 	MH_STATUS WINAPI MH_DisableHook(LPVOID pTarget);
 }
-
-unsigned char* PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
+PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 	LPCSTR pat = m_szSignature;
-	unsigned char* first_match = 0x0;
+	PBYTE first_match = 0x0;
 	PIMAGE_DOS_HEADER dos = (PIMAGE_DOS_HEADER)m_pModule;
-	PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((char*)m_pModule + dos->e_lfanew);
-	for (unsigned char* current = (unsigned char*)m_pModule; current < (unsigned char*)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
-		if (*(unsigned char*)pat == '\?' || *(unsigned char*)current == GET_BYTE(pat)) {
-			if (!*pat)
+	PIMAGE_NT_HEADERS nt = (PIMAGE_NT_HEADERS)((PBYTE)m_pModule + dos->e_lfanew);
+	for (PBYTE current = (PBYTE)m_pModule; current < (PBYTE)m_pModule + nt->OptionalHeader.SizeOfCode; current++) {
+		if (*(PBYTE)pat == '\?' || *(PBYTE)current == GET_BYTE(pat)) {
+			if (!(*pat))
 				return first_match;
 			if (!first_match)
 				first_match = current;
 			if (!pat[0x2])
 				return first_match;
-			pat += (*(USHORT*)pat == (USHORT)'\?\?' || *(unsigned char*)pat != (unsigned char)'\?') ? 0x3 : 0x2;
-		}
-		else {
+			pat += (*(PUSHORT)pat == (USHORT)'\?\?' || *(PBYTE)pat != (BYTE)'\?') ? 0x3 : 0x2;
+		} else {
 			if (first_match != 0x0)
 				current = first_match;
 			pat = m_szSignature;
 			first_match = 0x0;
 		}
 	}
-	return nullptr;
+	return NULL;
 }
 #undef DrawText
 #undef CreateFont
-template <typename I>
-__forceinline I v(PVOID iface, DWORD index) { return (I)((*(DWORD**)iface)[index]); }
+template <typename I, unsigned int Idx, typename ...Args>
+__forceinline I v(PVOID iface, Args... args) { return (*(I(__thiscall***)(void*, Args...))(iface))[Idx](iface, args...); }
+#define VIRTUAL_METHOD(returnType, name, idx, args, argsRaw) __forceinline returnType name args { return v<returnType, idx>argsRaw; }
+#define OFFSET(type, name, offset) __forceinline type name(VOID) { return *(type*)(this + offset); }
+#define ROFFSET(type, name, offset) __forceinline type& name(VOID) { return *(type*)(this + offset);} // not sure if there's a better way to do this but whatever
 using matrix_t = FLOAT[3][4];
 using matrix4x4_t = FLOAT[4][4];
-// config system
 BOOLEAN menu_open = TRUE;
 struct sconfig {
 	struct saim {
 		BOOLEAN m_bTriggerbot;
 		BOOLEAN m_bAutoPistol;
+		INT     m_nTriggerKey = VK_MBUTTON;
+		BOOLEAN m_bTriggerKey;
 	}aimbot;
 	struct svisuals {
 		BOOLEAN m_bBoxESP;
@@ -97,6 +81,7 @@ struct sconfig {
 		BOOLEAN m_bGameKeyboard;
 		BOOLEAN m_bSpectatorList;
 		BOOLEAN m_bUseSpam;
+		BOOLEAN m_bVoteRevealer;
 	}misc;
 }config;
 class vec3 {
@@ -139,36 +124,16 @@ struct SPlayerInfo {
 };
 class CMatSystemSurface {
 public:
-	__forceinline VOID DrawFilledRect(DWORD x, DWORD y, DWORD w, DWORD h) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, DWORD, DWORD, DWORD)>(this, 16)(this, x, y, x + w, y + h);
-	}
-	__forceinline VOID SetColor(USHORT r, USHORT g, USHORT b, USHORT a) {
-		return v<VOID(__thiscall*)(PVOID, USHORT, USHORT, USHORT, USHORT)>(this, 15)(this, r, g, b, a);
-	}
-	__forceinline VOID SetTextColor(USHORT r, USHORT g, USHORT b, USHORT a) {
-		return v<VOID(__thiscall*)(PVOID, USHORT, USHORT, USHORT, USHORT)>(this, 25)(this, r, g, b, a);
-	}
-	__forceinline VOID SetTextPosition(DWORD x, DWORD y) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, DWORD)>(this, 26)(this, x, y);
-	}
-	__forceinline VOID DrawText(LPCWSTR text, DWORD len) {
-		return v<VOID(__thiscall*)(PVOID, LPCWSTR, DWORD, DWORD)>(this, 28)(this, text, len, 0);
-	}
-	__forceinline DWORD CreateFont() {
-		return v<DWORD(__thiscall*)(PVOID)>(this, 71)(this);
-	}
-	__forceinline BOOLEAN SetFontGlyphs(DWORD _font, LPCSTR name, DWORD height, DWORD weight, DWORD font_flags) {
-		return v<BOOLEAN(__thiscall*)(PVOID, DWORD, LPCSTR, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD)>(this, 72)(this, _font, name, height, weight, 0, 0, font_flags, 0, 0);
-	}
-	__forceinline VOID SetTextFont(DWORD _font) {
-		return v<VOID(__thiscall*)(PVOID, DWORD)>(this, 23)(this, _font);
-	}
-	__forceinline VOID DrawRectOutline(DWORD x, DWORD y, DWORD w, DWORD h) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, DWORD, DWORD, DWORD)>(this, 18)(this, x, y, x + w, y + h);
-	}
-	__forceinline VOID GetTextSize(DWORD _font, LPCWSTR text, DWORD& w, DWORD& h) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, LPCWSTR, DWORD&, DWORD&)>(this, 79)(this, _font, text, w, h);
-	}
+	VIRTUAL_METHOD(VOID, DrawFilledRect, 16, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h))
+	VIRTUAL_METHOD(VOID, SetColor, 15, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a))
+	VIRTUAL_METHOD(VOID, SetTextColor, 25, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a))
+	VIRTUAL_METHOD(VOID, SetTextPosition, 26, (DWORD x, DWORD y), (this, x, y))
+	VIRTUAL_METHOD(VOID, DrawText, 28, (LPCWSTR text, DWORD len), (this, text, len, 0))
+	VIRTUAL_METHOD(DWORD, CreateFont, 71, (VOID), (this))
+	VIRTUAL_METHOD(BOOLEAN, SetFontGlyphs, 72, (DWORD _font, LPCSTR name, DWORD height, DWORD weight, DWORD font_flags), (this, _font, name, height, weight, 0, 0, font_flags, 0, 0))
+	VIRTUAL_METHOD(VOID, SetTextFont, 23, (DWORD _font), (this, _font))
+	VIRTUAL_METHOD(VOID, DrawRectOutline, 18, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h))
+	VIRTUAL_METHOD(VOID, GetTextSize, 79, (DWORD _font, LPCWSTR text, DWORD& w, DWORD& h), (this, _font, text, std::ref(w), std::ref(h)))
 };
 enum EMoveType {
 	NONE = 0,
@@ -195,92 +160,46 @@ public:
 	__forceinline PVOID GetNetworkable() {
 		return (PVOID)(this + 0x8);
 	}
-	__forceinline CCSClientClass* GetClientClass() {
-		PVOID networkable = this->GetNetworkable();
-		return v<CCSClientClass*(__thiscall*)(PVOID)>(networkable, 2)(networkable);
-	}
-	
-	__forceinline vec3 CollisonMins() { // CBaseEntity::m_Collison::m_vecMins
-		return *(vec3*)(this + 0x328);
-	}
-	__forceinline vec3 CollisonMaxs() { // CBaseEntity::m_Collison::m_vecMaxs
-		return *(vec3*)(this + 0x334);
-	}
-	__forceinline vec3 GetAbsOrigin() {
-		return v<vec3&(__thiscall*)(PVOID)>(this, 10)(this);
-	}
-	__forceinline vec3 GetViewOffset() { //	CBaseEntity::localdata::m_vecViewOffset
-		return *(vec3*)(this + 0x108);
-	}
-	__forceinline vec3 GetEyePosition() {
+	VIRTUAL_METHOD(CCSClientClass*, GetClientClass, 2, (VOID), (this->GetNetworkable()));
+	OFFSET(vec3, CollisonMins, 0x328); // CBaseEntity::m_Collison::m_vecMins
+	OFFSET(vec3, CollisonMaxs, 0x334);
+	VIRTUAL_METHOD(vec3&, GetAbsOrigin, 10, (VOID), (this));
+	OFFSET(vec3, GetViewOffset, 0x108); // CBaseEntity::localdata::m_vecViewOffset
+	__forceinline vec3 GetEyePosition(VOID) {
 		return (this->GetAbsOrigin() + this->GetViewOffset());
 	}
-	__forceinline unsigned char IsDormant() { // client.dll!8A 81 ? ? ? ? C3 32 C0 + 0x2
-		return *(unsigned char*)(this + 0xED);
-	}
-	__forceinline BOOLEAN IsInImmunity() { // CCSPlayer::m_bHasGunGameImmunity
-		return *(BOOLEAN*)(this + 0x3944);
-	}
-	__forceinline INT GetFlags() { // CCSPlayer::m_fFlags
-		return *(int*)(this + 0x104);
-	}
-	__forceinline INT MoveType() { // CCSPlayer::m_MoveType
-		return *(int*)(this + 0x25C);
-	}
-	__forceinline INT GetHealth() { // CBaseEntity::m_iHealth
-		return *(int*)(this + 0x100);
-	}
-	__forceinline CBaseEntity* GetWeapon() {
-		return v<CBaseEntity* (__thiscall*)(PVOID)>(this, 267)(this);
-	}
-	__forceinline INT GetWeaponType() {
-		return v<int(__thiscall*)(PVOID)>(this, 454)(this);
-	}
-	__forceinline FLOAT WeaponNextAttack() { // CBaseCombatWeapon::m_flNextPrimaryAttack
-		return *(FLOAT*)(this + 0x3238);
-	}
-	__forceinline matrix_t& GetCoordinateFrame() {
-		return *(matrix_t*)(this + 0x444);
-	}
-	__forceinline INT GetTeamNumber() {
-		return *(int*)(this + 0xF4);
-	}
-	__forceinline CBaseEntity* GetObserverTarget() {
-		return v<CBaseEntity* (__thiscall*)(PVOID)>(this, 294)(this);
-	}
-	__forceinline BOOLEAN& IsScoped() {
-		return *(BOOLEAN*)(this + 0x3928);
-	}
-	__forceinline BOOLEAN& Spotted() {
-		return *(BOOLEAN*)(this + 0x93D);
-	}
-	__forceinline FLOAT FlashDuration() {
-		return *(FLOAT*)(this + 0xA420);
-	}
-	__forceinline FLOAT& FlashMaxAlpha() {
-		return *(FLOAT*)(this + 0xA41C);
-	}
-	__forceinline INT Ammo() {
-		return *(int*)(this + 0x3264);
-	}
-	__forceinline INT CrosshairTarget() {
-		return *(int*)(this + 0xB3E4);
-	}
+	OFFSET(BOOLEAN, IsDormant, 0xED);
+	OFFSET(BOOLEAN, IsInImmunity, 0x3944);// CCSPlayer::m_bHasGunGameImmunity
+	OFFSET(INT, GetFlags, 0x104);
+	OFFSET(INT, MoveType, 0x25C);
+	OFFSET(INT, GetHealth, 0x100);
+	VIRTUAL_METHOD(CBaseEntity*, GetWeapon, 267, (VOID), (this));
+	VIRTUAL_METHOD(INT, GetWeaponType, 454, (VOID), (this));
+	OFFSET(FLOAT, WeaponNextAttack, 0x3238);
+	ROFFSET(matrix_t, GetCoordinateFrame, 0x444);
+	OFFSET(INT, GetTeamNumber, 0xF4);
+	VIRTUAL_METHOD(CBaseEntity*, GetObserverTarget, 294, (VOID), (this))
+	OFFSET(BOOLEAN, IsScoped, 0x3928);
+	ROFFSET(BOOLEAN, Spotted, 0x93D);
+	OFFSET(FLOAT, FlashDuration, 0xA420);
+	ROFFSET(FLOAT, FlashMaxAlpha, 0xA41C)
+	OFFSET(INT, Ammo, 0x3264);
+	OFFSET(INT, CrosshairTarget, 0xB3E4);
 };
 class CGlobalVarsBase {
 public:
 	FLOAT			m_flRealTime;
-	int				m_nFrameCount;
+	INT				m_nFrameCount;
 	FLOAT			m_flAbsFrameTime;
 	FLOAT			m_flAbsFrameStart;
 	FLOAT			m_flCurrentTime;
 	FLOAT			m_flFrameTime;
-	int				m_nMaxClients;
-	int				m_nTickCount;
+	INT				m_nMaxClients;
+	INT				m_nTickCount;
 	FLOAT			m_flTickInterval;
 	FLOAT			m_flInteropolationAmount;
-	int				m_nTicksThisFrmae;
-	int				m_nNetworkProtocol;
+	INT				m_nTicksThisFrmae;
+	INT          	m_nNetworkProtocol;
 	PVOID			m_pGameSaveData;
 	BOOLEAN			m_bClient;
 	BOOLEAN			m_bRemoteClient;
@@ -294,87 +213,43 @@ T RelativeToAbsolute(DWORD m_pAddress) {
 }
 class CBaseEntityList {
 public:
-	__forceinline CBaseEntity* GetEntity(INT index) {
-		return v<CBaseEntity* (__thiscall*)(PVOID, int)>(this, 3)(this, index);
-	}
+	VIRTUAL_METHOD(CBaseEntity*, GetEntity, 3, (INT index), (this, index));
 };
 class IVEngineClient {
 public:
-	__forceinline INT GetMaxClients() {
-		return v<int(__thiscall*)(PVOID)>(this, 20)(this);
-	}
-	__forceinline VOID GetScreenSize(DWORD& w, DWORD& h) {
-		return v<VOID(__thiscall*)(PVOID, DWORD&, DWORD&)>(this, 5)(this, w, h);
-	}
-	__forceinline BOOLEAN GetPlayerInfo(INT idx, SPlayerInfo* info) {
-		return v<BOOLEAN(__thiscall*)(PVOID, INT, SPlayerInfo*)>(this, 8)(this, idx, info);
-	}
-	__forceinline DWORD GetLocalPlayer() {
-		return v<DWORD(__thiscall*)(PVOID)>(this, 12)(this);
-	}
-	__forceinline BOOLEAN IsInGame() {
-		return v<BOOLEAN(__thiscall*)(PVOID)>(this, 26)(this);
-	}
-	__forceinline matrix4x4_t& GetViewMatrix() {
-		return v<matrix4x4_t& (__thiscall*)(PVOID)>(this, 37)(this);
-	}
-	__forceinline VOID ClientCmdUnrestricted(LPCSTR szCommand) {
-		return v<VOID(__thiscall*)(PVOID, LPCSTR, BOOLEAN)>(this, 114)(this, szCommand, FALSE);
-	}
-	__forceinline LPCSTR GetVersionString() {
-		return v<LPCSTR (__thiscall*)(PVOID)>(this, 105)(this);
-	}
-	__forceinline INT GetPlayerIndex(INT m_nIndex) {
-		return v<int(__thiscall*)(PVOID, int)>(this, 9)(this, m_nIndex);
-	}
+	VIRTUAL_METHOD(INT, GetMaxClients, 20, (VOID), (this));
+	VIRTUAL_METHOD(VOID, GetScreenSize, 5, (DWORD& w, DWORD& h), (this, std::ref(w), std::ref(h)));
+	VIRTUAL_METHOD(BOOLEAN, GetPlayerInfo, 8, (INT idx, SPlayerInfo* info), (this, idx, info));
+	VIRTUAL_METHOD(DWORD, GetLocalPlayer, 12, (VOID), (this));
+	VIRTUAL_METHOD(BOOLEAN, IsInGame, 26, (VOID), (this));
+	VIRTUAL_METHOD(matrix4x4_t&, GetViewMatrix, 37, (VOID), (this));
+	VIRTUAL_METHOD(VOID, ClientCmdUnrestricted, 114, (LPCSTR szCommand), (this, szCommand, FALSE));
+	VIRTUAL_METHOD(LPCSTR, GetVersionString, 105, (VOID), (this));
+	VIRTUAL_METHOD(INT, GetPlayerIndex, 9, (INT nIndex), (this, nIndex));
 };
 class IGameEvent {
 public:
-	__forceinline LPCSTR GetName() {
-		return v<LPCSTR(__thiscall*)(PVOID)>(this, 1)(this);
-	}
-	__forceinline BOOLEAN GetBool(LPCSTR keyName) {
-		return v<BOOLEAN(__thiscall*)(PVOID, LPCSTR, BOOLEAN)>(this, 5)(this, keyName, FALSE);
-	}
-	__forceinline INT GetInt(LPCSTR keyName) {
-		return v<int(__thiscall*)(PVOID, LPCSTR, int)>(this, 6)(this, keyName, 0);
-	}
+	VIRTUAL_METHOD(LPCSTR, GetName, 1, (VOID), (this));
+	VIRTUAL_METHOD(BOOLEAN, GetBool, 5, (LPCSTR keyName), (this, keyName, FALSE));
+	VIRTUAL_METHOD(INT, GetInt, 6, (LPCSTR keyName), (this, keyName, 0));
 };
 class IPanel {
 public:
-	__forceinline VOID SetInputKeyboardState(DWORD PanelID, BOOLEAN State) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, BOOLEAN)>(this, 31)(this, PanelID, State);
-	}
-	__forceinline VOID SetInputMouseState(DWORD PanelID, BOOLEAN State) {
-		return v<VOID(__thiscall*)(PVOID, DWORD, BOOLEAN)>(this, 32)(this, PanelID, State);
-	}
-	__forceinline LPCSTR GetPanelName(DWORD PanelID) {
-		return v<LPCSTR (__thiscall*)(PVOID, DWORD)>(this, 36)(this, PanelID);
-	}
+	VIRTUAL_METHOD(VOID, SetInputKeyboardState, 31, (DWORD PanelID, BOOLEAN State), (this, PanelID, State));
+	VIRTUAL_METHOD(VOID, SetInputMouseState, 32, (DWORD PanelID, BOOLEAN State), (this, PanelID, State));
+	VIRTUAL_METHOD(LPCSTR, GetPanelName, 36, (DWORD PanelID), (this, PanelID));
 };
 class CConvar {
 public:
-	__forceinline FLOAT GetFloat() {
-		return v<FLOAT(__thiscall*)(PVOID)>(this, 12)(this);
-	}
-	__forceinline INT GetInt() {
-		return v<int(__thiscall*)(PVOID)>(this, 13)(this);
-	}
-	__forceinline VOID SetValue(LPCSTR value) {
-		return v<VOID(__thiscall*)(PVOID, LPCSTR)>(this, 14)(this, value);
-	}
-	__forceinline VOID SetValue(FLOAT value) {
-		return v<VOID(__thiscall*)(PVOID, FLOAT)>(this, 15)(this, value);
-	}
-	__forceinline VOID SetValue(INT value) {
-		return v<VOID(__thiscall*)(PVOID, int)>(this, 16)(this, value);
-	}
+	VIRTUAL_METHOD(FLOAT, GetFloat, 12, (VOID), (this));
+	VIRTUAL_METHOD(INT, GetInt, 13, (VOID), (this));
+	VIRTUAL_METHOD(VOID, SetValue, 14, (LPCSTR value), (this, value));
+	VIRTUAL_METHOD(VOID, SetValue, 15, (FLOAT value), (this, value));
+	VIRTUAL_METHOD(VOID, SetValue, 16, (INT value), (this, value));
 };
 class ICVar {
 public:
-	__forceinline CConvar* FindVar(LPCSTR name) {
-		return v<CConvar* (__thiscall*)(PVOID, LPCSTR)>(this, 15)(this, name);
-	}
+	VIRTUAL_METHOD(CConvar*, FindVar, 15, (LPCSTR name), (this, name));
 };
 class CRecvProp;
 class CClientClass {
@@ -388,12 +263,8 @@ public:
 };
 class IClient {
 public:
-	__forceinline CClientClass* GetClientClasses() {
-		return v<CClientClass* (__thiscall*)(PVOID)>(this, 8)(this);
-	}
-	__forceinline BOOLEAN DispatchUserMessage(INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData) {
-		return v<BOOLEAN(__thiscall*)(PVOID, INT, INT, INT, PVOID)>(this, 38)(this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData);
-	}
+	VIRTUAL_METHOD(CClientClass*, GetClientClasses, 8, (VOID), (this))
+	VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
 };
 class IClientModeShared;
 class IGameEventManager2;
@@ -419,18 +290,20 @@ struct vec2 {
 		this->y = y;
 	}
 };
-VOID load() {
-	FILE* cfg = fopen("singlefile.cfg", "r");
+VOID load(LPCSTR szConfigName) {
+	FILE* cfg = fopen(szConfigName, "r");
 	fread(&config, sizeof(config), 1, cfg);
 	fclose(cfg);
 }
-VOID save() {
-	FILE* cfg = fopen("singlefile.cfg", "w");
+VOID save(LPCSTR szConfigName) {
+	FILE* cfg = fopen(szConfigName, "w");
 	fwrite(&config, sizeof(config), 1, cfg);
 	fclose(cfg);
 }
 namespace menu {
-	std::unordered_map<LPCWSTR, BOOLEAN> item_clicks = {};
+	struct sctx { BOOLEAN open; INT width; };
+	std::unordered_map < LPCWSTR, BOOLEAN> item_clicks = {};
+	std::unordered_map<PINT, sctx> Keys = {}; // I hate these stl containers but whatever its convienent for line count & index by pointer location rather than a custom id, this assumes you won't be having two keybinders with the same value
 	DWORD font, esp;
 	vec2 start_pos, size;
 	BOOLEAN dragging = FALSE, clicked = FALSE, item_active = FALSE, inmove = FALSE;
@@ -440,7 +313,7 @@ namespace menu {
 	}
 	BOOLEAN clicked_at( LPCWSTR n, INT x, INT y, INT w, INT h ) {
 		if (item_clicks.count(n) == 0) item_clicks[n] = FALSE;
-		if (!in_region(x, y, w, h) && !item_clicks[n] || menu::inmove) return FALSE;
+		if (!in_region(x, y, w, h) && !item_clicks[n] || inmove) return FALSE;
 		item_active = TRUE;
 		if (clicked) {
 			BOOLEAN ret = !item_clicks[n];
@@ -452,6 +325,7 @@ namespace menu {
 	}
 	VOID window(LPCWSTR name) {
 		item_active = FALSE;
+		interfaces.surface->SetTextFont(menu::font);
 		interfaces.surface->SetColor(23, 23, 30, 255);
 		interfaces.surface->DrawRectOutline(start_pos.x - 1, start_pos.y - 1, size.x + 2, size.y + 2);
 		interfaces.surface->SetColor(62, 62, 72, 255);
@@ -467,7 +341,6 @@ namespace menu {
 		interfaces.surface->SetColor(60, 60, 70, 255);
 		interfaces.surface->DrawFilledRect(start_pos.x + 6, start_pos.y + 20, size.x - 12, 1);
 		interfaces.surface->SetTextColor(255, 255, 255, 255);
-		interfaces.surface->SetTextFont(menu::font);
 		static DWORD u, i;
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition( start_pos.x + (size.x / 2) - (u / 2), start_pos.y + 6);
@@ -492,7 +365,6 @@ namespace menu {
 		}
 		interfaces.surface->SetTextColor(255, 255, 255, 255);
 		interfaces.surface->SetTextPosition(x_pos + 15, y_pos);
-		interfaces.surface->SetTextFont(menu::font);
 		interfaces.surface->DrawText(name, wcslen(name));
 		if (clicked_at(name, x_pos, y_pos, 12, 12))
 			*option = !(*option);
@@ -506,7 +378,6 @@ namespace menu {
 		interfaces.surface->SetColor(37, 37, 37, 255);
 		interfaces.surface->DrawFilledRect(pos.x + 2, pos.y + 2, size.x - 4, size.y - 4);
 		interfaces.surface->SetTextColor(255, 255, 255, 255);
-		interfaces.surface->SetTextFont(menu::font);
 		DWORD u, i;
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
 		interfaces.surface->SetTextPosition(pos.x + (size.x / 2) - u / 2, pos.y + (size.y / 2) - i / 2);
@@ -529,7 +400,43 @@ namespace menu {
 		}
 		return store();
 	}
-}
+	LPCWSTR pwszVirtualKeys[] = { L"?", L"M1", L"M2", L"BREAK", L"M3", L"M4", L"M5", L"?", L"BACK", L"TAB", L"?", L"?", L"?", L"ENTER", L"?", L"?", L"SHIFT", L"CTRL", L"ALT", L"PAUSE", L"CAPS", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"SPACE", L"PGUP", L"PGDN", L"END", L"HOME", L"LEFT", L"UP", L"RIGHT", L"DOWN", L"?", L"SYSRQ", L"?", L"PRNSCR", L"NONE", L"DEL", L"?", L"0", L"1", L"2", L"3", L"4", L"5", L"6", L"7", L"8", L"9", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"A", L"B", L"C", L"D", L"E", L"F", L"G", L"H", L"I", L"J", L"K", L"L", L"M", L"N", L"O", L"P", L"Q", L"R", L"S", L"T", L"U", L"V", L"W", L"X", L"Y", L"Z", L"WIN", L"RWIN", L"?", L"?", L"?", L"NUM 0", L"NUM 1", L"NUM 2", L"NUM 3", L"NUM 4", L"NUM 5", L"NUM 6", L"NUM 7", L"NUM 8", L"NUM 9", L"*", L"+", L"_", L"-", L".", L"/", L"F1", L"F2", L"F3", L"F4", L"F5", L"F6", L"F7", L"F8", L"F9", L"F10", L"F11", L"F12", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", L"?", }; // mhhh i'll fill in the rest later
+	VOID keybinder(PINT pKey) { // Pints for the low hello Dex.
+		INT x = x_pos + 180 - Keys[pKey].width;
+		INT y = y_pos - 15;
+		LPCWSTR  wszKeyName = pwszVirtualKeys[*pKey];
+		DWORD w, xh, h = 20;
+		interfaces.surface->GetTextSize(menu::font, wszKeyName, w, xh);
+		Keys[pKey].width = w + 16;
+		interfaces.surface->SetColor(17, 17, 17, 255);
+		interfaces.surface->DrawRectOutline(x, y, Keys[pKey].width, h);
+		interfaces.surface->SetColor(37, 37, 37, 255);
+		interfaces.surface->DrawFilledRect(x + 1, y + 1, Keys[pKey].width - 2, h - 2);
+		interfaces.surface->SetColor(21, 21, 21, 255);
+		interfaces.surface->DrawRectOutline(x + 2, y + 2, Keys[pKey].width - 4, h - 4);
+		interfaces.surface->SetTextColor(255, 255, 255, 255);
+		interfaces.surface->SetTextPosition(x + (Keys[pKey].width / 2) - (w / 2), y + 3);
+		interfaces.surface->DrawText(wszKeyName, wcslen(wszKeyName));
+		if (in_region(x, y, Keys[pKey].width, h) && GetAsyncKeyState(VK_LBUTTON))
+			Keys[pKey].open = TRUE;
+		if (!in_region(x, y, Keys[pKey].width, h) && GetAsyncKeyState(VK_LBUTTON))
+			Keys[pKey].open = FALSE;
+		if (Keys[pKey].open) {
+			interfaces.surface->SetColor(44, 44, 44, 255);
+			interfaces.surface->DrawFilledRect(x + 1, y + 1, Keys[pKey].width - 2, h - 2);
+			interfaces.surface->SetTextPosition(x + (Keys[pKey].width / 2) - 0x6, y + 3); // 0x6 = 12 / 2, 12 is the size of L"..." on the menu.
+			interfaces.surface->DrawText(L"...", 0x3);
+			INT nState = *pKey;
+			for (INT i = 0; i < 256; i++) {
+				USHORT nValue = GetAsyncKeyState(i) & 1;
+				if (nValue && i != nState) {
+					*pKey = i;
+					Keys[pKey].open = FALSE;
+				}
+			}
+		}
+	}
+}   
 VOID SetupFonts() {
 	menu::font = interfaces.surface->CreateFont();
 	interfaces.surface->SetFontGlyphs(menu::font, "Verdana", 12, 600, 0);
@@ -558,44 +465,46 @@ VOID RenderMenu() {
 	menu::checkbox(L"auto accept", &config.misc.m_bAutoAccept);
 	menu::column(184);
 	menu::checkbox(L"triggerbot", &config.aimbot.m_bTriggerbot);
+	menu::checkbox(L"trigger key", &config.aimbot.m_bTriggerKey);
+	menu::keybinder(&config.aimbot.m_nTriggerKey);
 	menu::checkbox(L"radar", &config.visuals.m_bRadar);
 	menu::checkbox(L"disable keyboard in menu", &config.misc.m_bGameKeyboard);
 	menu::checkbox(L"rank revealer", &config.visuals.m_bRankRevealer);
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
+	menu::checkbox(L"vote revealer", &config.misc.m_bVoteRevealer);
 	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
-		load();
+		load("singlefile");
 	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
-		save();
+		save("singlefile");
 }
-
 class CUserCmd {
 private:
-	unsigned char pad_0x0[0x4];
+	BYTE pad_0x0[0x4];
 public:
-	int			m_nCommandNumber;
-	int			m_nTickCount;
+  INT			m_nCommandNumber;
+	INT			m_nTickCount;
 	vec3		m_vecAngles;
 	vec3		m_vecDirection;
 	FLOAT		m_flForwardMove;
 	FLOAT		m_flSideMove;
 	FLOAT		m_flUpMove;
-	int			m_nButtons;
-	char		m_chImpulse;
-	int			m_nWeaponSelect;
-	int			m_nWeaponType;
-	short		m_shSeed;
-	short		m_shMouseDX;
-	short		m_shMouseDY;
+	INT			m_nButtons;
+	CHAR		m_chImpulse;
+	INT			m_nWeaponSelect;
+	INT			m_nWeaponType;
+	SHORT		m_shSeed;
+	SHORT		m_shMouseDX;
+	SHORT		m_shMouseDY;
 	BOOLEAN		m_bHasBeenPredicted;
 private:
-	unsigned char pad_0x1[0x18];
+	BYTE pad_0x1[0x18];
 };
-
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, CUserCmd*);
 VOID(__thiscall* PaintTraverseOriginal)(IPanel*, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
 VOID(WINAPI* EmitSoundOriginal)(PVOID, INT, INT, LPCSTR, DWORD, LPCSTR, FLOAT, INT, INT, INT, INT, const vec3&, const vec3&, PVOID, BOOLEAN, FLOAT, INT, PVOID);
+BOOLEAN(__thiscall* DispatchUserMessageOriginal)(PVOID, INT, INT, INT, PVOID);
 LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (uMsg == WM_KEYDOWN) {
@@ -609,8 +518,7 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	if (uMsg == WM_MOUSEMOVE) {
 		menu::move((INT)((SHORT)(LOWORD(lParam))), (INT)((SHORT)(HIWORD(lParam))));
 		menu::inmove = TRUE;
-	}
-	else {
+	} else {
 		menu::inmove = FALSE;
 	}
 	return CallWindowProc(orig_proc, hWnd, uMsg, wParam, lParam);
@@ -622,6 +530,20 @@ enum {
 	IN_SCORE = 1 << 16,
 	IN_COUNT = 1 << 26,
 };
+namespace colors { unsigned char green[4] = {0, 255, 0, 255}; unsigned char lightgreen[4] = {10, 200, 10, 255}; unsigned char red[4] = {255, 0, 0, 255}; unsigned char lightred[4] = {200, 10, 10, 255}; };
+void(*ColoredMsg)(PUCHAR, LPCSTR, ...);
+VOID voterevealer(IGameEvent* evt = NULL) {
+	if (!config.misc.m_bVoteRevealer || !interfaces.engine->IsInGame())
+		return;
+	CBaseEntity* pEntity = interfaces.entitylist->GetEntity(evt->GetInt("entityid"));
+	if (!pEntity || pEntity->GetClientClass()->m_nClassID != 0x28)
+		return;
+	BOOLEAN bF1d = (!evt->GetBool("vote_option"));
+	SPlayerInfo PlayerInfo;
+	interfaces.engine->GetPlayerInfo(evt->GetInt("entityid"), &PlayerInfo);
+	ColoredMsg(bF1d ? colors::lightgreen : colors::lightred, "[singlefile]: %s voted %s.\n", PlayerInfo.m_szName, bF1d ? "Yes" : "No");
+	Beep(bF1d ? 626 : 560, 75);
+}
 VOID bhop(CUserCmd* cmd) {
 	if (config.misc.m_bBhop) {
 		CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
@@ -660,13 +582,12 @@ VOID flashreducer() {
 	if (localplayer->FlashDuration() > 3.f) {
 		localplayer->FlashMaxAlpha() = 100;
 		interfaces.surface->SetTextColor(255, 100, 100, 255);
-		DWORD w, h;
+		DWORD w, h, tw, th;
 		interfaces.engine->GetScreenSize(w, h);
-		DWORD tw, th;
 		interfaces.surface->GetTextSize(6, L"FLASHED!", tw, th); // first 50 built-in vgui fonts: https://cdn.discordapp.com/attachments/634094496300400641/821827439042101258/unknown.png
 		interfaces.surface->SetTextPosition((DWORD)((w * 0.5f) - tw * 0.5f), (DWORD)(h * 0.75f));
 		interfaces.surface->SetTextFont(6); 
-		interfaces.surface->DrawText(L"FLASHED!", wcslen(L"FLASHED!"));
+		interfaces.surface->DrawText(L"FLASHED!", 0x8);
 	}
 }
 struct bbox {
@@ -700,7 +621,7 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 	const vec3 min = player->CollisonMins();
 	const vec3 max = player->CollisonMaxs();
 	vec3 vecTransScreen[8];
-	vec3 poINTs[] = {
+	vec3 points[] = {
 		vec3(min.x, min.y, min.z),
 		vec3(min.x, max.y, min.z),
 		vec3(max.x, max.y, min.z),
@@ -711,18 +632,11 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 		vec3(max.x, min.y, max.z)
 	};
 	for (INT i = 0; i <= 7; i++) {
-		if (!WorldToScreen(VectorTransform(poINTs[i], rgflTransFrame), vecTransScreen[i]))
+		if (!WorldToScreen(VectorTransform(points[i], rgflTransFrame), vecTransScreen[i]))
 			return FALSE;
 	}
 	vec3 vecBoxes[] = {
-		vecTransScreen[3],
-		vecTransScreen[5], 
-		vecTransScreen[0], 
-		vecTransScreen[4],
-		vecTransScreen[2], 
-		vecTransScreen[1],
-		vecTransScreen[6],
-		vecTransScreen[7] 
+		vecTransScreen[3], vecTransScreen[5], vecTransScreen[0], vecTransScreen[4], vecTransScreen[2], vecTransScreen[1], vecTransScreen[6], vecTransScreen[7] 
 	};
 	FLOAT flLeft = vecTransScreen[3].x, flBottom = vecTransScreen[3].y, flRight = vecTransScreen[3].x, flTop = vecTransScreen[3].y;
 	for (INT i = 0; i <= 7; i++) {
@@ -758,7 +672,7 @@ VOID players() {
 		return;
 	for (INT i = 1; i <= interfaces.engine->GetMaxClients(); i++) {
 		CBaseEntity* entity = interfaces.entitylist->GetEntity(i);
-		if (!entity || entity->GetHealth() == 0 || entity->GetClientClass()->m_nClassID != CCSPlayer)
+		if (!entity || entity->GetHealth() == 0 || entity->GetClientClass()->m_nClassID != 0x28)
 			continue;
 		if (!(config.visuals.m_bTargetTeam) && entity->GetTeamNumber() == localplayer->GetTeamNumber())
 			continue;
@@ -808,13 +722,13 @@ VOID cvars() {
 	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config.misc.m_bRecoilCrosshair ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
 	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config.misc.m_bNoScopeCrosshair) && !localplayer->IsScoped()) ? 2 : 0);
 }
-INT b = 0;
 VOID speclist() {
 	if (!interfaces.engine->IsInGame())
 		return;
 	CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
 	if (!localplayer)
 		return;
+	static INT b = 0;
 	if (config.misc.m_bSpectatorList) {
 		for (INT i = 1; i <= interfaces.engine->GetMaxClients(); i++) {
 			CBaseEntity* entity = interfaces.entitylist->GetEntity(i);
@@ -845,7 +759,7 @@ VOID triggerbot(CUserCmd* cmd) {
 	if (!lp || (lp->GetHealth() < 1) || !lp->CrosshairTarget())
 		return;
 	CBaseEntity* target = interfaces.entitylist->GetEntity((lp->CrosshairTarget()));
-	if (TriggerBotKEY && !GetAsyncKeyState(TriggerBotKEY))
+	if (config.aimbot.m_bTriggerKey && !GetAsyncKeyState(config.aimbot.m_nTriggerKey))
 		return;
 	if (!target->GetHealth() || lp->FlashDuration() > 0.1f || !lp->GetWeapon()->Ammo() || lp->GetWeapon()->WeaponNextAttack() > interfaces.globals->m_flCurrentTime || (!lp->IsScoped() && lp->GetWeapon()->GetWeaponType() == 5) || lp->GetTeamNumber() == target->GetTeamNumber()) // dumbass "hitchance" calculation but it's close enough ig
 		return;
@@ -859,37 +773,45 @@ VOID usespam(CUserCmd* cmd) {
 			cmd->m_nButtons &= ~IN_USE;
 	}
 }
+BOOLEAN __fastcall _DispatchUserMessage(PVOID ecx, PVOID edx, INT nMessageType, INT nArgument, INT nArgument2, PVOID pData) {
+	if (nMessageType == 47 && config.misc.m_bVoteRevealer) {
+		ColoredMsg(colors::green, "[singlefile] Vote Passed!\n"); Beep(670, 50); }
+	if (nMessageType == 48 && config.misc.m_bVoteRevealer) {
+		ColoredMsg(colors::red, "[singlefile] Vote Failed!\n"); Beep(343, 50); }
+	return DispatchUserMessageOriginal(interfaces.client, nMessageType, nArgument, nArgument2, pData);
+}
 BOOLEAN WINAPI _CreateMove(FLOAT flInputSampleTime, CUserCmd* cmd) {
 	BOOLEAN SetViewAngles = CreateMoveOriginal(flInputSampleTime, cmd);
 	if (cmd->m_nCommandNumber % 4 == 1) {
-		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option :P
+		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option at some point :P
 		cvars(); // commands that do not to run each tick (i.e don't need usercmd, just dependent on localplayer & being in game)
 	}
 	if (cmd->m_nButtons & IN_SCORE && config.visuals.m_bRankRevealer)
-		interfaces.client->DispatchUserMessage(50, 0, 0, nullptr);
+		interfaces.client->DispatchUserMessage(50, 0, 0, NULL);
 	bhop(cmd);
 	autopistol(cmd);
 	triggerbot(cmd);
 	usespam(cmd);
 	return SetViewAngles;
 }
-void WINAPI _EmitSound(void* filter, int entityIndex, int channel, const char* soundEntry, unsigned int soundEntryHash, const char* sample, float volume, int seed, int soundLevel, int flags, int pitch, const vec3& origin, const vec3& direction, void* utlVecOrigins, bool updatePositions, float soundtime, int speakerentity, void* soundParams) { // thank you danielkrupinski/Osiris for these arguments
+VOID WINAPI _EmitSound(void* filter, int entityIndex, int channel, const char* soundEntry, unsigned int soundEntryHash, const char* sample, float volume, int seed, int soundLevel, int flags, int pitch, const vec3& origin, const vec3& direction, void* utlVecOrigins, bool updatePositions, float soundtime, int speakerentity, void* soundParams) { // thank you danielkrupinski/Osiris for these arguments
 	autoaccept(soundEntry);
-	return EmitSoundOriginal(filter, entityIndex, channel, soundEntry, soundEntryHash, sample, volume, seed, soundLevel, flags, pitch, origin, direction, utlVecOrigins, updatePositions, soundtime, speakerentity, soundParams);
-}
-BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
-	if (config.misc.m_bHitSound) {
-		if (strstr(event->GetName(), "player_hurt")) {
-			SPlayerInfo player;
-			interfaces.engine->GetPlayerInfo(interfaces.engine->GetLocalPlayer(), &player);
-			if (event->GetInt("attacker") == player.m_nUserID)
-				interfaces.engine->ClientCmdUnrestricted("play buttons/arena_switch_press_02");
-		}
-	}
-	return GameEventsOriginal(interfaces.events, event);
+	return EmitSoundOriginal(filter, entityIndex, channel, soundEntry, soundEntryHash, sample, volume, seed, soundLevel, flags, pitch, std::cref(origin), std::cref(direction), utlVecOrigins, updatePositions, soundtime, speakerentity, soundParams);
 }
 DWORD fnv(LPCSTR szString, DWORD nOffset = 0x811C9DC5) {
 	return (*szString == '\0') ? nOffset : fnv(&szString[1], (nOffset ^ DWORD(*szString)) * 0x01000193);
+}
+BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
+	DWORD dwEventHash = fnv(event->GetName());
+	if (config.misc.m_bHitSound && dwEventHash == 0x1B30DDF0) {
+		SPlayerInfo player;
+		interfaces.engine->GetPlayerInfo(interfaces.engine->GetLocalPlayer(), &player);
+		if (event->GetInt("attacker") == player.m_nUserID)
+			interfaces.engine->ClientCmdUnrestricted("play buttons/arena_switch_press_02");
+	}
+	if (dwEventHash == 0xFDAD5FE5 && config.misc.m_bVoteRevealer)
+		voterevealer(event);
+	return GameEventsOriginal(interfaces.events, event);
 }
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) {
 	DWORD drawing = fnv(interfaces.panel->GetPanelName(dwPanel));
@@ -900,7 +822,7 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 		if (menu_open)
 			RenderMenu();
 	}
-	if (drawing == 0x8BE56F81) { // fnv("FocusOverlayPanelj") = 0x8BE56F81
+	if (drawing == 0x8BE56F81) { // fnv("FocusOverlayPanel") = 0x8BE56F81
 		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
 		interfaces.panel->SetInputKeyboardState(dwPanel, menu_open && (config.misc.m_bGameKeyboard));
 	}
@@ -908,15 +830,12 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 }
 VOID LoadHooks() {
 	MH_Initialize();
-	PVOID CreateMoveAddress = v<PVOID>(interfaces.client_mode, 24);
-	PVOID PaintTraverseAddress = v<PVOID>(interfaces.panel, 41);
-	PVOID FireGameEventsAddress = v<PVOID>(interfaces.events, 9);
-	PVOID EmitSoundAddress = v<PVOID>(interfaces.sound, 5);
-	MH_CreateHook(CreateMoveAddress, &_CreateMove, (PVOID*)&CreateMoveOriginal);
-	MH_CreateHook(PaintTraverseAddress, &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
-	MH_CreateHook(FireGameEventsAddress, &_GameEvents, (PVOID*)&GameEventsOriginal);
-	MH_CreateHook(EmitSoundAddress, &_EmitSound, (PVOID*)&EmitSoundOriginal);
-	MH_EnableHook(MH_ALL_HOOKS);
+	MH_CreateHook((*(PVOID**)(interfaces.client_mode))[24], &_CreateMove, (PVOID*)&CreateMoveOriginal);
+	MH_CreateHook((*(PVOID**)(interfaces.panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
+	MH_CreateHook((*(PVOID**)(interfaces.events))[9], &_GameEvents, (PVOID*)&GameEventsOriginal);
+	MH_CreateHook((*(PVOID**)(interfaces.sound))[5], &_EmitSound, (PVOID*)&EmitSoundOriginal);
+	MH_CreateHook((*(PVOID**)(interfaces.client))[38], &_DispatchUserMessage, (PVOID*)&DispatchUserMessageOriginal);
+	MH_EnableHook(NULL);
 }
 template <class T>
 T CreateInterface(PVOID m_pModule, LPCSTR m_szInterface) {
@@ -929,8 +848,8 @@ VOID WINAPI Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.2.1: loading... (compiled with %d lines of code)\n", GetLineCount());
-	csgo_window = FindWindowA("Valve001", nullptr);
+	printf("singlefile v1.3: loading... (compiled with %d lines of code)\n", GetLineCount());
+	csgo_window = FindWindowA("Valve001", NULL);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
 	engine_dll = GetModuleHandleA("engine.dll");
@@ -949,13 +868,14 @@ VOID WINAPI Init (HMODULE mod) {
 	interfaces.sound = CreateInterface<ISound*>(engine_dll, "IEngineSoundClient003");
 	interfaces.client_mode = **(IClientModeShared***)((*(DWORD**)(interfaces.client))[0xA] + 0x5);
 	interfaces.globals = **(CGlobalVarsBase***)((*(DWORD**)(interfaces.client))[0xB] + 0xA);
-	LoadHooks();
+	ColoredMsg = (decltype(ColoredMsg))GetProcAddress(GetModuleHandleA("tier0.dll"), "?ConColorMsg@@YAXABVColor@@PBDZZ");
 	SetupFonts();
+	LoadHooks();
 	printf("finished loading.\n");
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
-	MH_DisableHook(MH_ALL_HOOKS);
-	MH_RemoveHook(MH_ALL_HOOKS);
+	MH_DisableHook(NULL); // NULL = all hooks
+	MH_RemoveHook(NULL);
 	MH_Uninitialize();
 	FreeConsole();
 }
