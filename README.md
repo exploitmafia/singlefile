@@ -4,6 +4,8 @@ This is a featured CS:GO internal cheat written in less than 1000 lines, and in 
 
 If anyone who has contributed in the past and had received a push to main from their pull request, I'd be happy to give you access to the beta branch if you want to contribute further without making a pull request.
 
+You can join [here](https://github.com/exploitmafia/singlefile/invitations)
+
 ## features
 * draggable gui
 
