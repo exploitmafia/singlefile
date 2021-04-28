@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31205.134
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SingleFileInjector", "SingleFileInjector\SingleFileInjector.vcxproj", "{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}.Debug|x64.ActiveCfg = Debug|x64
+		{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}.Debug|x64.Build.0 = Debug|x64
+		{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}.Debug|x86.ActiveCfg = Debug|Win32
+		{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}.Debug|x86.Build.0 = Debug|Win32
+		{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}.Release|x64.ActiveCfg = Release|x64
+		{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}.Release|x64.Build.0 = Release|x64
+		{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}.Release|x86.ActiveCfg = Release|Win32
+		{89CD5382-FF3F-4FDA-ABE1-97C05B9015D6}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A7E93E67-58B1-4F92-BBB1-92FDEE14A890}
+	EndGlobalSection
+EndGlobal
