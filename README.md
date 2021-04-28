@@ -2,6 +2,8 @@
 
 This is a featured CS:GO internal cheat written in less than 1000 lines, and in one C++ file. I encourage you to submit feature suggestions and issues with the cheat!
 
+If anyone who has contributed in the past and had received a push to main from their pull request, I'd be happy to give you access to the beta branch if you want to contribute further without making a pull request.
+
 ## features
 * draggable gui
 
