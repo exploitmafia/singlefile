@@ -41,9 +41,6 @@ a simple config system is included with this cheat. there is currently only one 
 ## code style
 this was programmed with the intention of being a single-file cheat, as well as a target line count of under 1000. i achieved both of these with the initial version i am posting.
 
-## features i won't add
-in the interest of keeping line count down, i won't be adding customizable chams or glow, as the colors seem too awkward to emplace in the menu. Right now triggerbot is controlled by a macro, something I don't really like but currently works. I will be adding a key binder in the menu, which will make triggerbot easier. A keyboard is pretty simple compared to a colorpicker, so something I can reasonably add. As well as this, glow and chams are a rabbit hole of interfaces and classes that will just have like 1 or 2 functions. Glow doesn't seem that bad, however you need to have a visibility check. 
-
 ## changelog
 ### v1.0
 adds esp, as well as basic misc.
