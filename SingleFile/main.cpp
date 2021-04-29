@@ -35,7 +35,8 @@ PBYTE PatternScan(PVOID m_pModule, LPCSTR m_szSignature) {
 			if (!pat[0x2])
 				return first_match;
 			pat += (*(PUSHORT)pat == (USHORT)'\?\?' || *(PBYTE)pat != (BYTE)'\?') ? 0x3 : 0x2;
-		} else {
+		}
+		else {
 			if (first_match != 0x0)
 				current = first_match;
 			pat = m_szSignature;
@@ -124,16 +125,17 @@ struct SPlayerInfo {
 };
 class CMatSystemSurface {
 public:
-	VIRTUAL_METHOD(VOID, DrawFilledRect, 16, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h))
-	VIRTUAL_METHOD(VOID, SetColor, 15, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a))
-	VIRTUAL_METHOD(VOID, SetTextColor, 25, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a))
-	VIRTUAL_METHOD(VOID, SetTextPosition, 26, (DWORD x, DWORD y), (this, x, y))
-	VIRTUAL_METHOD(VOID, DrawText, 28, (LPCWSTR text, DWORD len), (this, text, len, 0))
-	VIRTUAL_METHOD(DWORD, CreateFont, 71, (VOID), (this))
-	VIRTUAL_METHOD(BOOLEAN, SetFontGlyphs, 72, (DWORD _font, LPCSTR name, DWORD height, DWORD weight, DWORD font_flags), (this, _font, name, height, weight, 0, 0, font_flags, 0, 0))
-	VIRTUAL_METHOD(VOID, SetTextFont, 23, (DWORD _font), (this, _font))
-	VIRTUAL_METHOD(VOID, DrawRectOutline, 18, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h))
-	VIRTUAL_METHOD(VOID, GetTextSize, 79, (DWORD _font, LPCWSTR text, DWORD& w, DWORD& h), (this, _font, text, std::ref(w), std::ref(h)))
+	VIRTUAL_METHOD(VOID, DrawFilledRect, 16, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h));
+	VIRTUAL_METHOD(VOID, SetColor, 15, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a));
+	VIRTUAL_METHOD(VOID, SetTextColor, 25, (USHORT r, USHORT g, USHORT b, USHORT a), (this, r, g, b, a));
+	VIRTUAL_METHOD(VOID, SetTextPosition, 26, (DWORD x, DWORD y), (this, x, y));
+	VIRTUAL_METHOD(VOID, DrawText, 28, (LPCWSTR text, DWORD len), (this, text, len, 0));
+	VIRTUAL_METHOD(DWORD, CreateFont, 71, (VOID), (this));
+	VIRTUAL_METHOD(BOOLEAN, SetFontGlyphs, 72, (DWORD _font, LPCSTR name, DWORD height, DWORD weight, DWORD font_flags), (this, _font, name, height, weight, 0, 0, font_flags, 0, 0));
+	VIRTUAL_METHOD(VOID, SetTextFont, 23, (DWORD _font), (this, _font));
+	VIRTUAL_METHOD(VOID, DrawRectOutline, 18, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h));
+	VIRTUAL_METHOD(VOID, GetTextSize, 79, (DWORD _font, LPCWSTR text, DWORD& w, DWORD& h), (this, _font, text, std::ref(w), std::ref(h)));
+	VIRTUAL_METHOD(VOID, GradientRectangle, 123, (INT x, INT y, INT w, INT h, DWORD dwAlpha1, DWORD dwAlpha2, BOOLEAN bHoriz), (this, x, y, w, h, dwAlpha1, dwAlpha2, bHoriz));
 };
 enum EMoveType {
 	NONE = 0,
@@ -179,11 +181,11 @@ public:
 	ROFFSET(matrix_t, GetCoordinateFrame, 0x444);
 	OFFSET(INT, GetTeamNumber, 0xF4);
 	VIRTUAL_METHOD(CBaseEntity*, GetObserverTarget, 294, (VOID), (this))
-	OFFSET(BOOLEAN, IsScoped, 0x3928);
+		OFFSET(BOOLEAN, IsScoped, 0x3928);
 	ROFFSET(BOOLEAN, Spotted, 0x93D);
 	OFFSET(FLOAT, FlashDuration, 0xA420);
 	ROFFSET(FLOAT, FlashMaxAlpha, 0xA41C)
-	OFFSET(INT, Ammo, 0x3264);
+		OFFSET(INT, Ammo, 0x3264);
 	OFFSET(INT, CrosshairTarget, 0xB3E4);
 	ROFFSET(INT, ObserverMode, 0x3378);
 };
@@ -283,7 +285,7 @@ class CRecvProp;
 class IClient {
 public:
 	VIRTUAL_METHOD(CCSClientClass*, GetClientClasses, 8, (VOID), (this))
-	VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
+		VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
 };
 class CInput {
 public:
@@ -328,6 +330,15 @@ VOID save(LPCSTR szConfigName) {
 	fwrite(&config, sizeof(config), 1, cfg);
 	fclose(cfg);
 }
+typedef struct TAGrgba {
+	INT r, g, b, a;
+	TAGrgba(INT r = 0, INT g = 0, INT b = 0, INT a = 255) {
+		this->r = r;
+		this->g = g;
+		this->b = b;
+		this->a = a;
+	}
+}RGBA, * PRGBA;
 namespace menu {
 	struct sctx { BOOLEAN open; INT width; };
 	std::unordered_map < LPCWSTR, BOOLEAN> item_clicks = {};
@@ -336,10 +347,10 @@ namespace menu {
 	vec2 start_pos, size;
 	BOOLEAN dragging = FALSE, clicked = FALSE, item_active = FALSE, inmove = FALSE;
 	INT x_pos = 0, y_pos = 0, last_mouse_x = 0, last_mouse_y = 0;
-	BOOLEAN in_region( INT x, INT y, INT w, INT h ) {
+	BOOLEAN in_region(INT x, INT y, INT w, INT h) {
 		return last_mouse_x >= x && last_mouse_y >= y && last_mouse_x <= x + w && last_mouse_y <= y + h;
 	}
-	BOOLEAN clicked_at( LPCWSTR n, INT x, INT y, INT w, INT h ) {
+	BOOLEAN clicked_at(LPCWSTR n, INT x, INT y, INT w, INT h) {
 		if (item_clicks.count(n) == 0) item_clicks[n] = FALSE;
 		if (!in_region(x, y, w, h) && !item_clicks[n] || inmove) return FALSE;
 		item_active = TRUE;
@@ -371,7 +382,7 @@ namespace menu {
 		interfaces.surface->SetTextColor(255, 255, 255, 255);
 		static DWORD u, i;
 		interfaces.surface->GetTextSize(menu::font, name, u, i);
-		interfaces.surface->SetTextPosition( start_pos.x + (size.x / 2) - (u / 2), start_pos.y + 6);
+		interfaces.surface->SetTextPosition(start_pos.x + (size.x / 2) - (u / 2), start_pos.y + 6);
 		interfaces.surface->DrawText(name, wcslen(name));
 		x_pos = start_pos.x + 10;
 		y_pos = start_pos.y + 25;
@@ -415,7 +426,7 @@ namespace menu {
 		return FALSE;
 	}
 	VOID move(INT x, INT y) {
-		auto store = [x, y] () -> VOID { menu::last_mouse_x = x; menu::last_mouse_y = y; };
+		auto store = [x, y]() -> VOID { menu::last_mouse_x = x; menu::last_mouse_y = y; };
 		if (!clicked) {
 			menu::dragging = FALSE;
 			return store();
@@ -481,7 +492,35 @@ namespace menu {
 			*pnOut = CLAMP((FLOAT)((last_mouse_x - x_pos) / 170.f) * nMax, nMin, nMax);
 		y_pos += 20;
 	}
-}   
+	VOID colorpicker(INT x, PRGBA pColor) { // we'll re-use the Keys object for the opened-ness.
+		interfaces.surface->SetColor(17, 17, 17, 255);
+		interfaces.surface->DrawRectOutline(x_pos + x, y_pos, 16, 16);
+		interfaces.surface->SetColor(37, 37, 37, 255);
+		interfaces.surface->DrawRectOutline(x_pos + x + 1, y_pos + 1, 14, 14);
+		interfaces.surface->SetColor(pColor->r, pColor->g, pColor->b, pColor->a);
+		interfaces.surface->DrawFilledRect(x_pos + x + 2, y_pos + 2, 12, 12);
+		interfaces.surface->SetColor(0, 0, 0, 255);
+		interfaces.surface->GradientRectangle(x_pos + x + 2, y_pos + 2, 12, 12, 75, 25, FALSE); // give 3d look
+		if (in_region(x_pos + x, y_pos, 16, 16) && GetAsyncKeyState(VK_LBUTTON))
+			Keys[(PINT)(pColor)].open = TRUE;
+		if (!in_region(x_pos + x, y_pos, 16, 16) && GetAsyncKeyState(VK_LBUTTON) && !in_region(x_pos + x + 5, y_pos + 5, 230, 200))
+			Keys[(PINT)(pColor)].open = FALSE;
+		if (Keys[(PINT)(pColor)].open) {
+			interfaces.surface->SetColor(42, 42, 42, 255);
+			//interfaces.surface->DrawFilledRect(x_pos + x + 5, y_pos + 5, 230, 200);
+			interfaces.surface->SetColor(37, 37, 37, 255);
+			interfaces.surface->DrawRectOutline(x_pos + x + 6, y_pos + 6, 228, 198);
+			interfaces.surface->SetColor(255, 255, 255, 255);
+			//interfaces.surface->DrawFilledRect(x_pos + x + 7, y_pos + 7, 196, 196);
+			interfaces.surface->SetColor(1, 1, 1, 255);
+			interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 255, 0, FALSE);
+			//interfaces.surface->SetColor(25, 100, 255, 255);
+			//interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 0, 255, TRUE); // Clipping with these rectangles is fucking retarded idk why, a gradient cannot draw over a regular thing
+			interfaces.surface->SetColor(25, 100, 220, 255);
+			interfaces.surface->GradientRectangle(80, 80, 80, 80, 255, 0, TRUE);
+		}
+	}
+}
 VOID SetupFonts() {
 	menu::font = interfaces.surface->CreateFont();
 	interfaces.surface->SetFontGlyphs(menu::font, "Verdana", 12, 600, 0);
@@ -495,7 +534,7 @@ VOID RenderMenu() {
 		once = TRUE;
 	}
 	menu::window(L"singlefile csgo internal");
-	menu::checkbox(L"bhop", &config.misc.m_bBhop); 
+	menu::checkbox(L"bhop", &config.misc.m_bBhop);
 	menu::checkbox(L"auto pistol", &config.aimbot.m_bAutoPistol);
 	menu::checkbox(L"hitsound", &config.misc.m_bHitSound);
 	menu::checkbox(L"box esp", &config.visuals.m_bBoxESP);
@@ -518,18 +557,20 @@ VOID RenderMenu() {
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
 	menu::checkbox(L"vote revealer", &config.misc.m_bVoteRevealer);
+	RGBA pog(20, 100, 255);
+	menu::colorpicker(170, &pog);
 	static int nTest = 102;
 	menu::slider(L"test slider", 0, 200, &nTest);
-	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
+	if (menu::button(L"load", { menu::start_pos.x + 10, menu::start_pos.y + 220 }, { 195, 30 }))
 		load("singlefile");
-	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
+	if (menu::button(L"save", { menu::start_pos.x + 215, menu::start_pos.y + 220 }, { 195, 30 }))
 		save("singlefile");
 }
 class CUserCmd {
 private:
 	BYTE pad_0x0[0x4];
 public:
-  INT			m_nCommandNumber;
+	INT			m_nCommandNumber;
 	INT			m_nTickCount;
 	vec3		m_vecAngles;
 	vec3		m_vecDirection;
@@ -566,7 +607,8 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	if (uMsg == WM_MOUSEMOVE) {
 		menu::move((INT)((SHORT)(LOWORD(lParam))), (INT)((SHORT)(HIWORD(lParam))));
 		menu::inmove = TRUE;
-	} else {
+	}
+	else {
 		menu::inmove = FALSE;
 	}
 	return CallWindowProcA(orig_proc, hWnd, uMsg, wParam, lParam);
@@ -578,7 +620,7 @@ enum {
 	IN_SCORE = 1 << 16,
 	IN_COUNT = 1 << 26,
 };
-namespace colors { unsigned char green[4] = {0, 255, 0, 255}; unsigned char lightgreen[4] = {10, 200, 10, 255}; unsigned char red[4] = {255, 0, 0, 255}; unsigned char lightred[4] = {200, 10, 10, 255}; };
+namespace colors { unsigned char green[4] = { 0, 255, 0, 255 }; unsigned char lightgreen[4] = { 10, 200, 10, 255 }; unsigned char red[4] = { 255, 0, 0, 255 }; unsigned char lightred[4] = { 200, 10, 10, 255 }; };
 void(*ColoredMsg)(PUCHAR, LPCSTR, ...);
 VOID voterevealer(IGameEvent* evt = NULL) {
 	if (!config.misc.m_bVoteRevealer || !interfaces.engine->IsInGame())
@@ -638,7 +680,7 @@ VOID flashreducer() {
 		interfaces.engine->GetScreenSize(w, h);
 		interfaces.surface->GetTextSize(6, L"FLASHED!", tw, th); // first 50 built-in vgui fonts: https://cdn.discordapp.com/attachments/634094496300400641/821827439042101258/unknown.png
 		interfaces.surface->SetTextPosition((DWORD)((w * 0.5f) - tw * 0.5f), (DWORD)(h * 0.75f));
-		interfaces.surface->SetTextFont(6); 
+		interfaces.surface->SetTextFont(6);
 		interfaces.surface->DrawText(L"FLASHED!", 0x8);
 	}
 }
@@ -676,7 +718,7 @@ vec3 AngleVectors(vec3 vecAngles) {
 	p2 = cosf(Radians(vecAngles.y));
 	p3 = sinf(Radians(vecAngles.x));
 	p4 = cosf(Radians(vecAngles.x));
-	vecReturn = {p4 * p2, p4 * p1, -p3};
+	vecReturn = { p4 * p2, p4 * p1, -p3 };
 	return vecReturn;
 }
 BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
@@ -692,7 +734,7 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 			return FALSE;
 	}
 	vec3 vecBoxes[] = {
-		vecTransScreen[3], vecTransScreen[5], vecTransScreen[0], vecTransScreen[4], vecTransScreen[2], vecTransScreen[1], vecTransScreen[6], vecTransScreen[7] 
+		vecTransScreen[3], vecTransScreen[5], vecTransScreen[0], vecTransScreen[4], vecTransScreen[2], vecTransScreen[1], vecTransScreen[6], vecTransScreen[7]
 	};
 	FLOAT flLeft = vecTransScreen[3].x, flBottom = vecTransScreen[3].y, flRight = vecTransScreen[3].x, flTop = vecTransScreen[3].y;
 	for (INT i = 0; i <= 7; i++) {
@@ -711,15 +753,6 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 	box.h = (INT)(flBottom)-(INT)(flTop);
 	return TRUE;
 }
-struct rgba {
-	INT r, g, b, a;
-	rgba(INT r = 0, INT g = 0, INT b = 0, INT a = 255) {
-		this->r = r;
-		this->g = g;
-		this->b = b;
-		this->a = a;
-	}
-};
 VOID players() {
 	if (!interfaces.engine->IsInGame())
 		return;
@@ -758,11 +791,11 @@ VOID players() {
 			}
 		}
 		if (config.visuals.m_bHealthBar) {
-			rgba healthclr;
+			RGBA healthclr;
 			if (entity->GetHealth() > 100)
-				healthclr = rgba(0, 255, 0, 255);
+				healthclr = RGBA(0, 255, 0, 255);
 			else
-				healthclr = rgba((INT)(255 - entity->GetHealth() * 2.55f), (INT)(entity->GetHealth() * 2.55f), 0, 255);
+				healthclr = RGBA((INT)(255 - entity->GetHealth() * 2.55f), (INT)(entity->GetHealth() * 2.55f), 0, 255);
 			interfaces.surface->SetColor(0, 0, 0, 255);
 			interfaces.surface->DrawFilledRect(box.x - 10, box.y - 1, 5, box.h + 2);
 			interfaces.surface->SetColor(healthclr.r, healthclr.g, healthclr.b, healthclr.a);
@@ -774,7 +807,7 @@ VOID players() {
 }
 VOID cvars() {
 	CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
-	interfaces.cvar->FindVar("mat_postprocess_enable")->SetValue(config.visuals.m_bDisablePostProcess ? 0 : 1); 
+	interfaces.cvar->FindVar("mat_postprocess_enable")->SetValue(config.visuals.m_bDisablePostProcess ? 0 : 1);
 	interfaces.cvar->FindVar("cl_crosshair_recoil")->SetValue(config.misc.m_bRecoilCrosshair ? 1 : 0); // i'm sure the ? 1 : 0 doesn't matter but this feels better. /shrug
 	interfaces.cvar->FindVar("weapon_debug_spread_show")->SetValue(((config.misc.m_bNoScopeCrosshair) && !localplayer->IsScoped()) ? 2 : 0);
 }
@@ -834,9 +867,11 @@ VOID __stdcall _OverrideView(PVOID pArgument) {
 }
 BOOLEAN __fastcall _DispatchUserMessage(PVOID ecx, PVOID edx, INT nMessageType, INT nArgument, INT nArgument2, PVOID pData) {
 	if (nMessageType == 47 && config.misc.m_bVoteRevealer) {
-		ColoredMsg(colors::green, "[singlefile] Vote Passed!\n"); Beep(670, 50); }
+		ColoredMsg(colors::green, "[singlefile] Vote Passed!\n"); Beep(670, 50);
+	}
 	if (nMessageType == 48 && config.misc.m_bVoteRevealer) {
-		ColoredMsg(colors::red, "[singlefile] Vote Failed!\n"); Beep(343, 50); }
+		ColoredMsg(colors::red, "[singlefile] Vote Failed!\n"); Beep(343, 50);
+	}
 	return DispatchUserMessageOriginal(interfaces.client, nMessageType, nArgument, nArgument2, pData);
 }
 BOOLEAN WINAPI _CreateMove(FLOAT flInputSampleTime, CUserCmd* cmd) {
@@ -877,6 +912,8 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 		flashreducer();
 		if (menu_open)
 			RenderMenu();
+		interfaces.surface->SetColor(25, 100, 220, 255);
+		interfaces.surface->GradientRectangle(2, 2, 80, 80, 255, 0, TRUE); 
 	}
 	if (drawing == CT_FNV("FocusOverlayPanel")) {
 		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
@@ -899,7 +936,7 @@ T CreateInterface(PVOID m_pModule, LPCSTR m_szInterface) {
 	return ((T(*)(LPCSTR, DWORD))GetProcAddress((HMODULE)m_pModule, "CreateInterface"))(m_szInterface, 0x0);
 }
 INT GetLineCount();
-VOID WINAPI Init (HMODULE mod) {
+VOID WINAPI Init(HMODULE mod) {
 	while (!GetModuleHandleA("serverbrowser.dll"))
 		Sleep(250);
 	AllocConsole();
