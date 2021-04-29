@@ -33,7 +33,7 @@ BOOL WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			COMDLG_FILTERSPEC pFileType[] = {
 				L"Injectable Modules", L"*.dll"
 			};
-			if (CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, (void**)(&pFileDialog)) >= 0) {
+			if (CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL, IID_IFileOpenDialog, (PVOID*)(&pFileDialog)) >= 0) {
 				pFileDialog->SetFileTypes(1, pFileType);
 				if (pFileDialog->Show(NULL) >= 0) {
 					IShellItem* pDLL;
