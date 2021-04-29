@@ -606,11 +606,12 @@ VOID autopistol(CUserCmd* cmd) {
 			cmd->m_nButtons &= ~IN_ATTACK;
 	}
 }
-DWORD fnv(LPCSTR szString, DWORD nOffset = 0x811C9DC5) {
+__forceinline constexpr DWORD fnv(LPCSTR szString, DWORD nOffset = 0x811C9DC5) {
 	return (*szString == '\0') ? nOffset : fnv(&szString[1], (nOffset ^ DWORD(*szString)) * 0x01000193);
 }
+#define CT_FNV(str) (std::integral_constant<DWORD, fnv(str)>::value)
 VOID autoaccept(LPCSTR sound) {
-	if (fnv(sound) == 0x1E7F4590) { // 0x1E7F4590 = Panorama UI Beep Hash
+	if (fnv(sound) == CT_FNV("UIPanorama.popup_accept_match_beep")) {
 		static BOOLEAN(WINAPI * SetLPReady)(LPCSTR) = (decltype(SetLPReady))PatternScan(client_dll, "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12");
 		if (config.misc.m_bAutoAccept)
 			SetLPReady("");
@@ -634,8 +635,7 @@ VOID flashreducer() {
 struct bbox {
 	INT x, y, w, h;
 };
-BOOLEAN WorldToScreen(const vec3& world, vec3& screen)
-{
+BOOLEAN WorldToScreen(const vec3& world, vec3& screen) {
 	matrix4x4_t& view = interfaces.engine->GetViewMatrix();
 	screen.x = world.x * view[0][0] + world.y * view[0][1] + world.z * view[0][2] + view[0][3];
 	screen.y = world.x * view[1][0] + world.y * view[1][1] + world.z * view[1][2] + view[1][3];
@@ -849,26 +849,26 @@ VOID WINAPI _EmitSound(void* filter, int entityIndex, int channel, const char* s
 }
 BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
 	DWORD dwEventHash = fnv(event->GetName());
-	if (config.misc.m_bHitSound && dwEventHash == 0x1B30DDF0) {
+	if (config.misc.m_bHitSound && dwEventHash == CT_FNV("player_hurt")) {
 		SPlayerInfo player;
 		interfaces.engine->GetPlayerInfo(interfaces.engine->GetLocalPlayer(), &player);
 		if (event->GetInt("attacker") == player.m_nUserID)
 			interfaces.engine->ClientCmdUnrestricted("play buttons/arena_switch_press_02");
 	}
-	if (dwEventHash == 0xFDAD5FE5 && config.misc.m_bVoteRevealer)
+	if (dwEventHash == CT_FNV("vote_cast") && config.misc.m_bVoteRevealer)
 		voterevealer(event);
 	return GameEventsOriginal(interfaces.events, event);
 }
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) {
 	DWORD drawing = fnv(interfaces.panel->GetPanelName(dwPanel));
-	if (drawing == 0xA4A548AF) { // fnv("MatSystemTopPanel") = 0xA4A548AF
+	if (drawing == CT_FNV("MatSystemTopPanel")) {
 		players();
 		speclist();
 		flashreducer();
 		if (menu_open)
 			RenderMenu();
 	}
-	if (drawing == 0x8BE56F81) { // fnv("FocusOverlayPanel") = 0x8BE56F81
+	if (drawing == CT_FNV("FocusOverlayPanel")) {
 		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
 		interfaces.panel->SetInputKeyboardState(dwPanel, menu_open && (config.misc.m_bGameKeyboard));
 	}
@@ -918,7 +918,6 @@ VOID WINAPI Init (HMODULE mod) {
 	interfaces.globals = **(CGlobalVarsBase***)((*(DWORD**)(interfaces.client))[0xB] + 0xA);
 	interfaces.input = *(CInput**)((*(DWORD**)(interfaces.client))[0x10] + 0x1);
 	ColoredMsg = (decltype(ColoredMsg))GetProcAddress(GetModuleHandleA("tier0.dll"), "?ConColorMsg@@YAXABVColor@@PBDZZ");
-	printf("0x%X\n", fnv("UIPanorama.popup_accept_match_beep"));
 	SetupFonts();
 	LoadHooks();
 	printf("finished loading.\n");
@@ -927,7 +926,7 @@ VOID WINAPI Init (HMODULE mod) {
 	MH_DisableHook(NULL); // NULL = all hooks
 	MH_RemoveHook(NULL);
 	MH_Uninitialize();
-	FreeConsole();
+	FreeLibraryAndExitThread(mod, 0x1);
 }
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID pReserved) {
 	if (dwReason == DLL_PROCESS_ATTACH)
