@@ -857,7 +857,7 @@ VOID WINAPI Init (HMODULE mod) {
 	PVOID vgui2_dll = GetModuleHandleA("vgui2.dll");
 	PVOID vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
-	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.7"))
+	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.8"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are experiencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
