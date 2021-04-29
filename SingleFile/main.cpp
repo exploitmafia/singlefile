@@ -910,8 +910,6 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 		flashreducer();
 		if (menu_open)
 			RenderMenu();
-		interfaces.surface->SetColor(25, 100, 220, 255);
-		interfaces.surface->GradientRectangle(2, 2, 80, 80, 255, 0, TRUE); 
 	}
 	if (drawing == CT_FNV("FocusOverlayPanel")) {
 		interfaces.panel->SetInputMouseState(dwPanel, menu_open);
