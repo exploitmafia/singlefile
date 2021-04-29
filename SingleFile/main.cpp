@@ -149,7 +149,7 @@ class CCSClientClass {
 public:
 	PVOID CreateClassFn;
 	PVOID CreateEventFn;
-	char* m_szNetworkedName;
+	LPSTR m_szNetworkedName;
 	PVOID m_pRecvTable;
 	CCSClientClass* m_pNextClass;
 	INT m_nClassID;
@@ -279,26 +279,17 @@ public:
 	VIRTUAL_METHOD(VOID, TraceRay, 5, (const CRay& pRay, DWORD dwMask, const CTraceFilter& pSkip, CTrace& pTrace), (this, std::cref(pRay), dwMask, std::cref(pSkip), std::ref(pTrace)));
 };
 class CRecvProp;
-class CClientClass {
-public:
-	PVOID			m_pCreateFunction;
-	PVOID			m_pCreateEventFunction;
-	char*			m_szNetworkName;
-	CRecvProp*      m_pRecvPointer;
-	CClientClass*	m_pNextPointer;
-	int				m_nClassID;
-};
 class IClient {
 public:
-	VIRTUAL_METHOD(CClientClass*, GetClientClasses, 8, (VOID), (this))
+	VIRTUAL_METHOD(CCSClientClass*, GetClientClasses, 8, (VOID), (this))
 	VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
 };
 class CInput {
 public:
-	PAD(173);
+	PAD(0xAD);
 	bool bCameraInThirdperson;
-	PAD(1);
-	vec3 vecCameraInThirdperson;
+	PAD(0x1);
+	vec3 vecCameraOffset;
 };
 class IClientModeShared;
 class IGameEventManager2;
@@ -440,7 +431,7 @@ namespace menu {
 	VOID keybinder(PINT pKey) { // Pints for the low hello Dex.
 		INT x = x_pos + 180 - Keys[pKey].width;
 		INT y = y_pos - 15;
-		LPCWSTR  wszKeyName = pwszVirtualKeys[*pKey];
+		LPCWSTR wszKeyName = pwszVirtualKeys[*pKey];
 		DWORD w, xh, h = 20;
 		interfaces.surface->GetTextSize(menu::font, wszKeyName, w, xh);
 		Keys[pKey].width = w + 16;
@@ -471,6 +462,19 @@ namespace menu {
 				}
 			}
 		}
+	}
+	VOID slider(LPCWSTR wsz, INT nMin, INT nMax, PINT pnOut) {
+
+		interfaces.surface->SetTextPosition(x_pos + 5, y_pos); y_pos += 12;
+		interfaces.surface->DrawText(wsz, wcslen(wsz));
+		interfaces.surface->SetColor(17, 17, 17, 255);
+		interfaces.surface->DrawRectOutline(x_pos, y_pos, 120, 15);
+		interfaces.surface->SetColor(37, 37, 37, 255);
+		interfaces.surface->DrawRectOutline(x_pos + 1, y_pos + 1, 118, 13);
+		interfaces.surface->SetColor(25, 100, 255, 255);
+		interfaces.surface->DrawFilledRect(x_pos + 2, y_pos + 2, (116 * ((FLOAT)(*pnOut) / (FLOAT)(nMax - nMin))), 11);
+		if (in_region(x_pos - 2, y_pos - 2, 122, 17) && GetAsyncKeyState(VK_LBUTTON)) // make the bbox slightly bigger if the mouse is moving quickly
+			*pnOut = (FLOAT)((last_mouse_x - x_pos) / 120.f) * nMax;
 	}
 }   
 VOID SetupFonts() {
@@ -509,7 +513,8 @@ VOID RenderMenu() {
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
 	menu::checkbox(L"vote revealer", &config.misc.m_bVoteRevealer);
-	menu::checkbox(L"thirdperson", &config.visuals.m_bThirdperson);
+	static int nTest = 102;
+	menu::slider(L"test slider", 0, 200, &nTest);
 	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
 		load("singlefile");
 	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
