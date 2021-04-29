@@ -507,15 +507,15 @@ namespace menu {
 			Keys[(PINT)(pColor)].open = FALSE;
 		if (Keys[(PINT)(pColor)].open) {
 			interfaces.surface->SetColor(42, 42, 42, 255);
-			//interfaces.surface->DrawFilledRect(x_pos + x + 5, y_pos + 5, 230, 200);
+			interfaces.surface->DrawFilledRect(x_pos + x + 5, y_pos + 5, 230, 200);
 			interfaces.surface->SetColor(37, 37, 37, 255);
 			interfaces.surface->DrawRectOutline(x_pos + x + 6, y_pos + 6, 228, 198);
 			interfaces.surface->SetColor(255, 255, 255, 255);
-			//interfaces.surface->DrawFilledRect(x_pos + x + 7, y_pos + 7, 196, 196);
+			interfaces.surface->DrawFilledRect(x_pos + x + 7, y_pos + 7, 196, 196);
 			interfaces.surface->SetColor(1, 1, 1, 255);
 			interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 255, 0, FALSE);
-			//interfaces.surface->SetColor(25, 100, 255, 255);
-			//interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 0, 255, TRUE); // Clipping with these rectangles is fucking retarded idk why, a gradient cannot draw over a regular thing
+			interfaces.surface->SetColor(25, 100, 255, 255);
+			interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 0, 255, TRUE); 
 			interfaces.surface->SetColor(25, 100, 220, 255);
 			interfaces.surface->GradientRectangle(80, 80, 80, 80, 255, 0, TRUE);
 		}
