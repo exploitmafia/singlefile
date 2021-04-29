@@ -972,6 +972,7 @@ VOID WINAPI Init(HMODULE mod) {
 		Sleep(500);
 	MH_DisableHook(NULL); // NULL = all hooks
 	MH_RemoveHook(NULL);
+	SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG_PTR)orig_proc);
 	MH_Uninitialize();
 	FreeLibraryAndExitThread(mod, 0x1);
 }
