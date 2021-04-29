@@ -85,11 +85,7 @@ struct sconfig {
 class vec3 {
 public:
 	FLOAT x, y, z;
-	vec3(FLOAT a = 0, FLOAT b = 0, FLOAT c = 0) {
-		this->x = a;
-		this->y = b;
-		this->z = c;
-	}
+	vec3(FLOAT a = 0, FLOAT b = 0, FLOAT c = 0) : x(a), y(b), z(c) { }
 	vec3 operator-=(const vec3& in) { x -= in.x; y -= in.y; z -= in.z; return *this; }
 	vec3 operator+=(const vec3& in) { x += in.x; y += in.y; z += in.z; return *this; }
 	vec3 operator/=(const vec3& in) { x /= in.x; y /= in.y; z /= in.z; return *this; }
@@ -172,11 +168,11 @@ public:
 	ROFFSET(matrix_t, GetCoordinateFrame, 0x444);
 	OFFSET(INT, GetTeamNumber, 0xF4);
 	VIRTUAL_METHOD(CBaseEntity*, GetObserverTarget, 294, (VOID), (this))
-		OFFSET(BOOLEAN, IsScoped, 0x3928);
+	OFFSET(BOOLEAN, IsScoped, 0x3928);
 	ROFFSET(BOOLEAN, Spotted, 0x93D);
 	OFFSET(FLOAT, FlashDuration, 0xA420);
 	ROFFSET(FLOAT, FlashMaxAlpha, 0xA41C)
-		OFFSET(INT, Ammo, 0x3264);
+	OFFSET(INT, Ammo, 0x3264);
 	OFFSET(INT, CrosshairTarget, 0xB3E4);
 	ROFFSET(INT, ObserverMode, 0x3378);
 };
@@ -276,7 +272,7 @@ class CRecvProp;
 class IClient {
 public:
 	VIRTUAL_METHOD(CCSClientClass*, GetClientClasses, 8, (VOID), (this))
-		VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
+	VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
 };
 class CInput {
 public:
@@ -306,10 +302,7 @@ HWND csgo_window;
 WNDPROC orig_proc;
 struct vec2 {
 	INT x, y;
-	vec2(INT x = 0, INT y = 0) {
-		this->x = x;
-		this->y = y;
-	}
+	vec2(INT x = 0, INT y = 0) : x(x), y(y) {}
 };
 VOID load(LPCSTR szConfigName) {
 	FILE* cfg = fopen(szConfigName, "r");
@@ -451,10 +444,8 @@ namespace menu {
 			interfaces.surface->DrawFilledRect(x + 1, y + 1, Keys[pKey].width - 2, h - 2);
 			interfaces.surface->SetTextPosition(x + (Keys[pKey].width / 2) - 0x6, y + 3); // 0x6 = 12 / 2, 12 is the size of L"..." on the menu.
 			interfaces.surface->DrawText(L"...", 0x3);
-			INT nState = *pKey;
 			for (INT i = 0; i < 256; i++) {
-				USHORT nValue = GetAsyncKeyState(i) & 1;
-				if (nValue && i != nState) {
+				if (GetAsyncKeyState( i ) & 1 && i != *pKey) {
 					*pKey = i;
 					Keys[pKey].open = FALSE;
 				}
@@ -580,13 +571,8 @@ VOID(WINAPI* EmitSoundOriginal)(PVOID, INT, INT, LPCSTR, DWORD, LPCSTR, FLOAT, I
 BOOLEAN(__thiscall* DispatchUserMessageOriginal)(PVOID, INT, INT, INT, PVOID);
 LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	if (uMsg == WM_KEYDOWN) {
-		switch (wParam) {
-		case VK_INSERT:
-			menu_open = !menu_open;
-			break;
-		}
-	}
+	if (uMsg == WM_KEYDOWN && wParam == VK_INSERT)
+		menu_open ^= true;
 	menu::inmove = uMsg == WM_MOUSEMOVE;
 	menu::clicked = (BOOLEAN)(wParam & MK_LBUTTON);
 	if (menu::inmove)
