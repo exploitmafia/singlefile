@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
+#include <intrin.h>
 #include <cstdio>
 #include <unordered_map>
 #include <string>
@@ -50,6 +51,7 @@ __forceinline I v(PVOID iface, Args... args) { return (*(I(__thiscall***)(void*,
 #define VIRTUAL_METHOD(returnType, name, idx, args, argsRaw) __forceinline returnType name args { return v<returnType, idx>argsRaw; }
 #define OFFSET(type, name, offset) __forceinline type name(VOID) { return *(type*)(this + offset); }
 #define ROFFSET(type, name, offset) __forceinline type& name(VOID) { return *(type*)(this + offset);} // not sure if there's a better way to do this but whatever
+#define PAD(amt) private: char padding_##amt[amt]; public:
 using matrix_t = FLOAT[3][4];
 using matrix4x4_t = FLOAT[4][4];
 BOOLEAN menu_open = TRUE;
@@ -71,6 +73,9 @@ struct sconfig {
 		BOOLEAN m_bDisablePostProcess;
 		BOOLEAN m_bRankRevealer;
 		BOOLEAN m_bFlashReducer;
+		BOOLEAN m_bThirdperson;
+		INT		m_nThirdpersonDistance = 10;
+		BOOLEAN m_bThirdpersonOnDead;
 	}visuals;
 	struct smisc {
 		BOOLEAN m_bBhop;
@@ -105,13 +110,7 @@ public:
 };
 struct SPlayerInfo {
 	ULONG64 m_ullVersion;
-	union {
-		ULONG64 m_ullXUID;
-		struct {
-			DWORD m_nXUIDLow;
-			DWORD m_nXUIDHigh;
-		};
-	};
+	ULONG64 m_ullXUID;
 	CHAR m_szName[128];
 	INT m_nUserID;
 	CHAR m_szGUID[33];
@@ -185,6 +184,7 @@ public:
 	ROFFSET(FLOAT, FlashMaxAlpha, 0xA41C)
 	OFFSET(INT, Ammo, 0x3264);
 	OFFSET(INT, CrosshairTarget, 0xB3E4);
+	ROFFSET(INT, ObserverMode, 0x3378);
 };
 class CGlobalVarsBase {
 public:
@@ -226,6 +226,7 @@ public:
 	VIRTUAL_METHOD(VOID, ClientCmdUnrestricted, 114, (LPCSTR szCommand), (this, szCommand, FALSE));
 	VIRTUAL_METHOD(LPCSTR, GetVersionString, 105, (VOID), (this));
 	VIRTUAL_METHOD(INT, GetPlayerIndex, 9, (INT nIndex), (this, nIndex));
+	VIRTUAL_METHOD(VOID, GetViewAngles, 18, (vec3& angles), (this, std::ref(angles)));
 };
 class IGameEvent {
 public:
@@ -251,6 +252,32 @@ class ICVar {
 public:
 	VIRTUAL_METHOD(CConvar*, FindVar, 15, (LPCSTR name), (this, name));
 };
+class CRay {
+public:
+	CRay(vec3 vecSource, vec3 vecDest) { this->vecStart = vecSource; this->vecDelta = (vecDelta - vecSource); }
+	vec3 vecStart;
+	vec3 vecDelta;
+};
+struct CTraceFilter {
+	LPCVOID pSkip;
+	CTraceFilter(CBaseEntity* pEntity) { this->pSkip = pEntity; }
+};
+class CTrace {
+public:
+	vec3 vecStart;
+	vec3 vecEnd;
+	PAD(0x14);
+	FLOAT flFraction;
+	PAD(0xC);
+	LPCSTR pszSurfaceName;
+	PAD(0x0C);
+	CBaseEntity* pEntity;
+	INT nHitbox;
+};
+class IEngineTrace {
+public:
+	VIRTUAL_METHOD(VOID, TraceRay, 5, (const CRay& pRay, DWORD dwMask, const CTraceFilter& pSkip, CTrace& pTrace), (this, std::cref(pRay), dwMask, std::cref(pSkip), std::ref(pTrace)));
+};
 class CRecvProp;
 class CClientClass {
 public:
@@ -266,20 +293,29 @@ public:
 	VIRTUAL_METHOD(CClientClass*, GetClientClasses, 8, (VOID), (this))
 	VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
 };
+class CInput {
+public:
+	PAD(173);
+	bool bCameraInThirdperson;
+	PAD(1);
+	vec3 vecCameraInThirdperson;
+};
 class IClientModeShared;
 class IGameEventManager2;
 class ISound;
 struct sinterfaces {
-	IVEngineClient* engine = nullptr;
-	CMatSystemSurface* surface = nullptr;
-	CBaseEntityList* entitylist = nullptr;
-	IPanel* panel = nullptr;
-	IClient* client = nullptr;
-	IClientModeShared* client_mode = nullptr;
-	IGameEventManager2* events = nullptr;
-	CGlobalVarsBase* globals = nullptr;
-	ICVar* cvar = nullptr;
-	ISound* sound = nullptr;
+	IVEngineClient* engine = NULL;
+	CMatSystemSurface* surface = NULL;
+	CBaseEntityList* entitylist = NULL;
+	IPanel* panel = NULL;
+	IClient* client = NULL;
+	IClientModeShared* client_mode = NULL;
+	IGameEventManager2* events = NULL;
+	CGlobalVarsBase* globals = NULL;
+	ICVar* cvar = NULL;
+	ISound* sound = NULL;
+	CInput* input = NULL;
+	IEngineTrace* trace = NULL;
 }interfaces;
 HWND csgo_window;
 WNDPROC orig_proc;
@@ -473,6 +509,7 @@ VOID RenderMenu() {
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
 	menu::checkbox(L"vote revealer", &config.misc.m_bVoteRevealer);
+	menu::checkbox(L"thirdperson", &config.visuals.m_bThirdperson);
 	if (menu::button(L"load", {menu::start_pos.x + 10, menu::start_pos.y + 220}, {195, 30}))
 		load("singlefile");
 	if (menu::button(L"save", {menu::start_pos.x + 215, menu::start_pos.y + 220}, {195, 30}))
@@ -500,6 +537,7 @@ public:
 private:
 	BYTE pad_0x1[0x18];
 };
+VOID(WINAPI* OverrideViewOriginal)(PVOID);
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, CUserCmd*);
 VOID(__thiscall* PaintTraverseOriginal)(IPanel*, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(__thiscall* GameEventsOriginal)(IGameEventManager2*, IGameEvent*);
@@ -521,7 +559,7 @@ LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	} else {
 		menu::inmove = FALSE;
 	}
-	return CallWindowProc(orig_proc, hWnd, uMsg, wParam, lParam);
+	return CallWindowProcA(orig_proc, hWnd, uMsg, wParam, lParam);
 }
 enum {
 	IN_ATTACK = 1 << 0,
@@ -568,8 +606,11 @@ VOID autopistol(CUserCmd* cmd) {
 			cmd->m_nButtons &= ~IN_ATTACK;
 	}
 }
+DWORD fnv(LPCSTR szString, DWORD nOffset = 0x811C9DC5) {
+	return (*szString == '\0') ? nOffset : fnv(&szString[1], (nOffset ^ DWORD(*szString)) * 0x01000193);
+}
 VOID autoaccept(LPCSTR sound) {
-	if (strstr(sound, "UIPanorama.popup_accept_match_beep")) {
+	if (fnv(sound) == 0x1E7F4590) { // 0x1E7F4590 = Panorama UI Beep Hash
 		static BOOLEAN(WINAPI * SetLPReady)(LPCSTR) = (decltype(SetLPReady))PatternScan(client_dll, "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12");
 		if (config.misc.m_bAutoAccept)
 			SetLPReady("");
@@ -613,8 +654,20 @@ BOOLEAN WorldToScreen(const vec3& world, vec3& screen)
 	return TRUE;
 }
 #define FL_MAX 3.40282e+038;
+#define PI 3.1415927f
+#define Radians(x) ((FLOAT)(x)*(FLOAT)(PI / 180.f))
 vec3 VectorTransform(vec3 in, matrix_t matrix) {
 	return vec3(in.dot(matrix[0]) + matrix[0][3], in.dot(matrix[1]) + matrix[1][3], in.dot(matrix[2]) + matrix[2][3]);
+}
+vec3 AngleVectors(vec3 vecAngles) {
+	vec3 vecReturn;
+	FLOAT p1, p2, p3, p4;
+	p1 = sinf(Radians(vecAngles.y));
+	p2 = cosf(Radians(vecAngles.y));
+	p3 = sinf(Radians(vecAngles.x));
+	p4 = cosf(Radians(vecAngles.x));
+	vecReturn = {p4 * p2, p4 * p1, -p3};
+	return vecReturn;
 }
 BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 	matrix_t& rgflTransFrame = (matrix_t&)player->GetCoordinateFrame();
@@ -622,14 +675,7 @@ BOOLEAN getbbot(CBaseEntity* player, bbox& box) {
 	const vec3 max = player->CollisonMaxs();
 	vec3 vecTransScreen[8];
 	vec3 points[] = {
-		vec3(min.x, min.y, min.z),
-		vec3(min.x, max.y, min.z),
-		vec3(max.x, max.y, min.z),
-		vec3(max.x, min.y, min.z),
-		vec3(max.x, max.y, max.z),
-		vec3(min.x, max.y, max.z),
-		vec3(min.x, min.y, max.z),
-		vec3(max.x, min.y, max.z)
+		vec3(min.x, min.y, min.z), vec3(min.x, max.y, min.z), vec3(max.x, max.y, min.z), vec3(max.x, min.y, min.z), vec3(max.x, max.y, max.z), vec3(min.x, max.y, max.z), vec3(min.x, min.y, max.z), vec3(max.x, min.y, max.z)
 	};
 	for (INT i = 0; i <= 7; i++) {
 		if (!WorldToScreen(VectorTransform(points[i], rgflTransFrame), vecTransScreen[i]))
@@ -773,6 +819,9 @@ VOID usespam(CUserCmd* cmd) {
 			cmd->m_nButtons &= ~IN_USE;
 	}
 }
+VOID __stdcall _OverrideView(PVOID pArgument) {
+	return OverrideViewOriginal(pArgument);
+}
 BOOLEAN __fastcall _DispatchUserMessage(PVOID ecx, PVOID edx, INT nMessageType, INT nArgument, INT nArgument2, PVOID pData) {
 	if (nMessageType == 47 && config.misc.m_bVoteRevealer) {
 		ColoredMsg(colors::green, "[singlefile] Vote Passed!\n"); Beep(670, 50); }
@@ -797,9 +846,6 @@ BOOLEAN WINAPI _CreateMove(FLOAT flInputSampleTime, CUserCmd* cmd) {
 VOID WINAPI _EmitSound(void* filter, int entityIndex, int channel, const char* soundEntry, unsigned int soundEntryHash, const char* sample, float volume, int seed, int soundLevel, int flags, int pitch, const vec3& origin, const vec3& direction, void* utlVecOrigins, bool updatePositions, float soundtime, int speakerentity, void* soundParams) { // thank you danielkrupinski/Osiris for these arguments
 	autoaccept(soundEntry);
 	return EmitSoundOriginal(filter, entityIndex, channel, soundEntry, soundEntryHash, sample, volume, seed, soundLevel, flags, pitch, std::cref(origin), std::cref(direction), utlVecOrigins, updatePositions, soundtime, speakerentity, soundParams);
-}
-DWORD fnv(LPCSTR szString, DWORD nOffset = 0x811C9DC5) {
-	return (*szString == '\0') ? nOffset : fnv(&szString[1], (nOffset ^ DWORD(*szString)) * 0x01000193);
 }
 BOOLEAN WINAPI _GameEvents(IGameEvent* event) {
 	DWORD dwEventHash = fnv(event->GetName());
@@ -835,6 +881,7 @@ VOID LoadHooks() {
 	MH_CreateHook((*(PVOID**)(interfaces.events))[9], &_GameEvents, (PVOID*)&GameEventsOriginal);
 	MH_CreateHook((*(PVOID**)(interfaces.sound))[5], &_EmitSound, (PVOID*)&EmitSoundOriginal);
 	MH_CreateHook((*(PVOID**)(interfaces.client))[38], &_DispatchUserMessage, (PVOID*)&DispatchUserMessageOriginal);
+	MH_CreateHook((*(PVOID**)(interfaces.client_mode))[18], &_OverrideView, (PVOID*)&OverrideViewOriginal);
 	MH_EnableHook(NULL);
 }
 template <class T>
@@ -857,7 +904,7 @@ VOID WINAPI Init (HMODULE mod) {
 	PVOID vgui2_dll = GetModuleHandleA("vgui2.dll");
 	PVOID vstdlib_dll = GetModuleHandleA("vstdlib.dll");
 	interfaces.engine = CreateInterface<IVEngineClient*>(engine_dll, "VEngineClient014");
-	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.7"))
+	if (!strstr(interfaces.engine->GetVersionString(), "1.37.8.8"))
 		printf("note: you are using an unknown cs:go client version (%s). if you are experiencing crashes, you may need to update offsets. each offset in the source code has it's netvar name, or you can find it on hazedumper.\n", interfaces.engine->GetVersionString());
 	interfaces.entitylist = CreateInterface<CBaseEntityList*>(client_dll, "VClientEntityList003");
 	interfaces.surface = CreateInterface<CMatSystemSurface*>(surface_dll, "VGUI_Surface031");
@@ -866,9 +913,12 @@ VOID WINAPI Init (HMODULE mod) {
 	interfaces.cvar = CreateInterface<ICVar*>(vstdlib_dll, "VEngineCvar007");
 	interfaces.events = CreateInterface<IGameEventManager2*>(engine_dll, "GAMEEVENTSMANAGER002");
 	interfaces.sound = CreateInterface<ISound*>(engine_dll, "IEngineSoundClient003");
+	interfaces.trace = CreateInterface<IEngineTrace*>(engine_dll, "EngineTraceClient004");
 	interfaces.client_mode = **(IClientModeShared***)((*(DWORD**)(interfaces.client))[0xA] + 0x5);
 	interfaces.globals = **(CGlobalVarsBase***)((*(DWORD**)(interfaces.client))[0xB] + 0xA);
+	interfaces.input = *(CInput**)((*(DWORD**)(interfaces.client))[0x10] + 0x1);
 	ColoredMsg = (decltype(ColoredMsg))GetProcAddress(GetModuleHandleA("tier0.dll"), "?ConColorMsg@@YAXABVColor@@PBDZZ");
+	printf("0x%X\n", fnv("UIPanorama.popup_accept_match_beep"));
 	SetupFonts();
 	LoadHooks();
 	printf("finished loading.\n");
