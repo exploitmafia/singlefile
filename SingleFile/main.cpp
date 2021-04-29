@@ -52,6 +52,7 @@ __forceinline I v(PVOID iface, Args... args) { return (*(I(__thiscall***)(void*,
 #define OFFSET(type, name, offset) __forceinline type name(VOID) { return *(type*)(this + offset); }
 #define ROFFSET(type, name, offset) __forceinline type& name(VOID) { return *(type*)(this + offset);} // not sure if there's a better way to do this but whatever
 #define PAD(amt) private: char padding_##amt[amt]; public:
+#define CLAMP(val, _min, _max) (val > _max) ? _max : (val < _min) ? _min : val
 using matrix_t = FLOAT[3][4];
 using matrix4x4_t = FLOAT[4][4];
 BOOLEAN menu_open = TRUE;
@@ -464,17 +465,21 @@ namespace menu {
 		}
 	}
 	VOID slider(LPCWSTR wsz, INT nMin, INT nMax, PINT pnOut) {
-
-		interfaces.surface->SetTextPosition(x_pos + 5, y_pos); y_pos += 12;
+		interfaces.surface->SetTextPosition(x_pos + 2, y_pos); y_pos += 12;
 		interfaces.surface->DrawText(wsz, wcslen(wsz));
+		WCHAR pwszValue[8]; _itow(*pnOut, pwszValue, 10); DWORD w, h;
+		interfaces.surface->GetTextSize(menu::font, pwszValue, w, h);
+		interfaces.surface->SetTextPosition((x_pos + 170) - (w + 2), y_pos - 12); // meh too lazy to change offset
+		interfaces.surface->DrawText(pwszValue, wcslen(pwszValue));
 		interfaces.surface->SetColor(17, 17, 17, 255);
-		interfaces.surface->DrawRectOutline(x_pos, y_pos, 120, 15);
+		interfaces.surface->DrawRectOutline(x_pos, y_pos, 170, 15);
 		interfaces.surface->SetColor(37, 37, 37, 255);
-		interfaces.surface->DrawRectOutline(x_pos + 1, y_pos + 1, 118, 13);
+		interfaces.surface->DrawRectOutline(x_pos + 1, y_pos + 1, 168, 13);
 		interfaces.surface->SetColor(25, 100, 255, 255);
-		interfaces.surface->DrawFilledRect(x_pos + 2, y_pos + 2, (116 * ((FLOAT)(*pnOut) / (FLOAT)(nMax - nMin))), 11);
-		if (in_region(x_pos - 2, y_pos - 2, 122, 17) && GetAsyncKeyState(VK_LBUTTON)) // make the bbox slightly bigger if the mouse is moving quickly
-			*pnOut = (FLOAT)((last_mouse_x - x_pos) / 120.f) * nMax;
+		interfaces.surface->DrawFilledRect(x_pos + 2, y_pos + 2, (166 * ((FLOAT)(*pnOut) / (FLOAT)(nMax - nMin))), 11);
+		if (in_region(x_pos - 2, y_pos - 2, 172, 17) && GetAsyncKeyState(VK_LBUTTON)) // make the bbox slightly bigger if the mouse is moving quickly
+			*pnOut = CLAMP((FLOAT)((last_mouse_x - x_pos) / 170.f) * nMax, nMin, nMax);
+		y_pos += 20;
 	}
 }   
 VOID SetupFonts() {
