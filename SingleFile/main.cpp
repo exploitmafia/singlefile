@@ -135,7 +135,7 @@ public:
 	VIRTUAL_METHOD(VOID, SetTextFont, 23, (DWORD _font), (this, _font));
 	VIRTUAL_METHOD(VOID, DrawRectOutline, 18, (DWORD x, DWORD y, DWORD w, DWORD h), (this, x, y, x + w, y + h));
 	VIRTUAL_METHOD(VOID, GetTextSize, 79, (DWORD _font, LPCWSTR text, DWORD& w, DWORD& h), (this, _font, text, std::ref(w), std::ref(h)));
-	VIRTUAL_METHOD(VOID, GradientRectangle, 123, (INT x, INT y, INT w, INT h, DWORD dwAlpha1, DWORD dwAlpha2, BOOLEAN bHoriz), (this, x, y, w, h, dwAlpha1, dwAlpha2, bHoriz));
+	VIRTUAL_METHOD(VOID, GradientRectangle, 123, (INT x, INT y, INT w, INT h, DWORD dwAlpha1, DWORD dwAlpha2, BOOLEAN bHoriz), (this, x, y, x + w, y + h, dwAlpha1, dwAlpha2, bHoriz));
 };
 enum EMoveType {
 	NONE = 0,
@@ -516,8 +516,6 @@ namespace menu {
 			interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 255, 0, FALSE);
 			interfaces.surface->SetColor(25, 100, 255, 255);
 			interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 0, 255, TRUE); 
-			interfaces.surface->SetColor(25, 100, 220, 255);
-			interfaces.surface->GradientRectangle(80, 80, 80, 80, 255, 0, TRUE);
 		}
 	}
 }
@@ -557,14 +555,14 @@ VOID RenderMenu() {
 	menu::checkbox(L"use spam", &config.misc.m_bUseSpam);
 	menu::checkbox(L"flash reducer", &config.visuals.m_bFlashReducer);
 	menu::checkbox(L"vote revealer", &config.misc.m_bVoteRevealer);
-	RGBA pog(20, 100, 255);
-	menu::colorpicker(170, &pog);
-	static int nTest = 102;
-	menu::slider(L"test slider", 0, 200, &nTest);
 	if (menu::button(L"load", { menu::start_pos.x + 10, menu::start_pos.y + 220 }, { 195, 30 }))
 		load("singlefile");
 	if (menu::button(L"save", { menu::start_pos.x + 215, menu::start_pos.y + 220 }, { 195, 30 }))
 		save("singlefile");
+	RGBA pog(20, 100, 255);
+	menu::colorpicker(170, &pog);
+	static int nTest = 102;
+	menu::slider(L"test slider", 0, 200, &nTest);
 }
 class CUserCmd {
 private:
