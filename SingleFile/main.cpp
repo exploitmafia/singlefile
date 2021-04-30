@@ -194,8 +194,6 @@ public:
 	PVOID			m_pGameSaveData;
 	BOOLEAN			m_bClient;
 	BOOLEAN			m_bRemoteClient;
-private:
-	PAD(0x8);
 };
 template <typename T>
 T RelativeToAbsolute(DWORD m_pAddress) {
@@ -943,11 +941,6 @@ VOID WINAPI Init(HMODULE mod) {
 	SetupFonts();
 	LoadHooks();
 	printf("finished loading.\n");
-	RGBA colr(123, 49, 98);
-	INT h, s, v;
-	RGBtoHSV(colr, &h, &s, &v);
-	HSVtoRGB(&colr, h, s, v);
-	printf("col test: (%d, %d, %d) => (%d, %d, %d) => (%d, %d, %d)\n", 123, 49, 98);
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
 	MH_DisableHook(NULL); // NULL = all hooks
