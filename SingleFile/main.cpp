@@ -178,22 +178,8 @@ public:
 	ROFFSET(INT, ObserverMode, 0x3378);
 };
 class CGlobalVarsBase {
-public:
-	FLOAT			m_flRealTime;
-	INT				m_nFrameCount;
-	FLOAT			m_flAbsFrameTime;
-	FLOAT			m_flAbsFrameStart;
+	PAD(0x10); // PAD resets access level to public
 	FLOAT			m_flCurrentTime;
-	FLOAT			m_flFrameTime;
-	INT				m_nMaxClients;
-	INT				m_nTickCount;
-	FLOAT			m_flTickInterval;
-	FLOAT			m_flInteropolationAmount;
-	INT				m_nTicksThisFrmae;
-	INT          	m_nNetworkProtocol;
-	PVOID			m_pGameSaveData;
-	BOOLEAN			m_bClient;
-	BOOLEAN			m_bRemoteClient;
 };
 template <typename T>
 T RelativeToAbsolute(DWORD m_pAddress) {
