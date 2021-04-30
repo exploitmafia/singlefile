@@ -1,13 +1,8 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include <windows.h>
-#include <intrin.h>
-#include <cstdio>
 #include <unordered_map>
-#include <string>
-#define IN_RANGE(x, a, b)        (x >= a && x <= b) 
-#define GET_BITS(x)        (IN_RANGE(x,'0','9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
+#define GET_BITS(x)        ((x >= '0' && x <= '9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE(x)        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
-PVOID client_dll = NULL;  PVOID engine_dll = NULL; HMODULE pModule = NULL;
+PVOID client_dll = NULL;  PVOID engine_dll = NULL;
 typedef enum MH_STATUS {
 	MH_UNKNOWN = -1, MH_OK = 0, MH_ERROR_ALREADY_INITIALIZED, MH_ERROR_NOT_INITIALIZED, MH_ERROR_ALREADY_CREATED, MH_ERROR_NOT_CREATED, MH_ERROR_ENABLED, MH_ERROR_DISABLED, MH_ERROR_NOT_EXECUTABLE, MH_ERROR_UNSUPPORTED_FUNCTION, MH_ERROR_MEMORY_ALLOC, MH_ERROR_MEMORY_PROTECT, MH_ERROR_MODULE_NOT_FOUND, MH_ERROR_FUNCTION_NOT_FOUND
 } MH_STATUS; // get minhook here: https://github.com/TsudaKageyu/minhook | License for minhook (text of license has not been modified, just newlines removed) : /* MinHook - The Minimalistic API Hooking Library for x64 / x86 * Copyright(C) 2009 - 2017 Tsuda Kageyu. * All rights reserved. * *Redistribution and use in source and binary forms, with or without * modification, are permitted provided that the following conditions * are met : * *1. Redistributions of source code must retain the above copyright * notice, this list of conditionsand the following disclaimer. * 2. Redistributions in binary form must reproduce the above copyright * notice, this list of conditionsand the following disclaimer in the * documentationand /or other materials provided with the distribution. * *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A * PARTICULAR PURPOSE ARE DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER * OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, * EXEMPLARY, OR CONSEQUENTIAL DAMAGES(INCLUDING, BUT NOT LIMITED TO, *PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT(INCLUDING * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. * /
@@ -90,11 +85,7 @@ struct sconfig {
 class vec3 {
 public:
 	FLOAT x, y, z;
-	vec3(FLOAT a = 0, FLOAT b = 0, FLOAT c = 0) {
-		this->x = a;
-		this->y = b;
-		this->z = c;
-	}
+	vec3(FLOAT a = 0, FLOAT b = 0, FLOAT c = 0) : x(a), y(b), z(c) { }
 	vec3 operator-=(const vec3& in) { x -= in.x; y -= in.y; z -= in.z; return *this; }
 	vec3 operator+=(const vec3& in) { x += in.x; y += in.y; z += in.z; return *this; }
 	vec3 operator/=(const vec3& in) { x /= in.x; y /= in.y; z /= in.z; return *this; }
@@ -177,11 +168,11 @@ public:
 	ROFFSET(matrix_t, GetCoordinateFrame, 0x444);
 	OFFSET(INT, GetTeamNumber, 0xF4);
 	VIRTUAL_METHOD(CBaseEntity*, GetObserverTarget, 294, (VOID), (this))
-		OFFSET(BOOLEAN, IsScoped, 0x3928);
+	OFFSET(BOOLEAN, IsScoped, 0x3928);
 	ROFFSET(BOOLEAN, Spotted, 0x93D);
 	OFFSET(FLOAT, FlashDuration, 0xA420);
 	ROFFSET(FLOAT, FlashMaxAlpha, 0xA41C)
-		OFFSET(INT, Ammo, 0x3264);
+	OFFSET(INT, Ammo, 0x3264);
 	OFFSET(INT, CrosshairTarget, 0xB3E4);
 	ROFFSET(INT, ObserverMode, 0x3378);
 };
@@ -281,7 +272,7 @@ class CRecvProp;
 class IClient {
 public:
 	VIRTUAL_METHOD(CCSClientClass*, GetClientClasses, 8, (VOID), (this))
-		VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
+	VIRTUAL_METHOD(BOOLEAN, DispatchUserMessage, 38, (INT m_nMessageType, INT m_nArgument1, INT m_nArgument2, PVOID m_pData), (this, m_nMessageType, m_nArgument1, m_nArgument2, m_pData))
 };
 class CInput {
 public:
@@ -311,10 +302,7 @@ HWND csgo_window;
 WNDPROC orig_proc;
 struct vec2 {
 	INT x, y;
-	vec2(INT x = 0, INT y = 0) {
-		this->x = x;
-		this->y = y;
-	}
+	vec2(INT x = 0, INT y = 0) : x(x), y(y) {}
 };
 VOID load(LPCSTR szConfigName) {
 	FILE* cfg = fopen(szConfigName, "r");
@@ -480,10 +468,8 @@ namespace menu {
 			interfaces.surface->DrawFilledRect(x + 1, y + 1, Keys[pKey].width - 2, h - 2);
 			interfaces.surface->SetTextPosition(x + (Keys[pKey].width / 2) - 0x6, y + 3); // 0x6 = 12 / 2, 12 is the size of L"..." on the menu.
 			interfaces.surface->DrawText(L"...", 0x3);
-			INT nState = *pKey;
 			for (INT i = 0; i < 256; i++) {
-				USHORT nValue = GetAsyncKeyState(i) & 1;
-				if (nValue && i != nState) {
+				if (GetAsyncKeyState( i ) & 1 && i != *pKey) {
 					*pKey = i;
 					Keys[pKey].open = FALSE;
 				}
@@ -619,13 +605,8 @@ VOID(WINAPI* EmitSoundOriginal)(PVOID, INT, INT, LPCSTR, DWORD, LPCSTR, FLOAT, I
 BOOLEAN(__thiscall* DispatchUserMessageOriginal)(PVOID, INT, INT, INT, PVOID);
 LRESULT CALLBACK Wndproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	if (uMsg == WM_KEYDOWN) {
-		switch (wParam) {
-		case VK_INSERT:
-			menu_open = !menu_open;
-			break;
-		}
-	}
+	if (uMsg == WM_KEYDOWN && wParam == VK_INSERT)
+		menu_open ^= true;
 	menu::inmove = uMsg == WM_MOUSEMOVE;
 	menu::clicked = (BOOLEAN)(wParam & MK_LBUTTON);
 	if (menu::inmove)
