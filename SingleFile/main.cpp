@@ -194,8 +194,7 @@ public:
 	BOOLEAN			m_bClient;
 	BOOLEAN			m_bRemoteClient;
 private:
-	DWORD	unk1;
-	DWORD	unk2;
+	PAD(0x8);
 };
 template <typename T>
 T RelativeToAbsolute(DWORD m_pAddress) {
@@ -323,23 +322,25 @@ void RGBtoHSV(RGBA in, PINT h, PINT s, PINT v) {
 	float flMin = min(min((FLOAT)(in.r / 255.f), (FLOAT)(in.g / 255.f)), (FLOAT)(in.b / 255.f));
 	float flDelta = flMax - flMin;
 	if (flDelta) {
-		if (flMax == in.r)
+		if (flMax == in.r && h)
 			*h = 0x3C * (fmodf((FLOAT)(in.g / 255.f) - (FLOAT)(in.b / 255.f), 0x6));
-		if (flMax == in.g)
+		if (flMax == in.g && h)
 			*h = 0x3C * (((FLOAT)(in.g / 255.f) - (FLOAT)(in.r / 255.f)) + 0x2);
-		if (flMax == in.b)
+		if (flMax == in.b && h)
 			*h = 0x3C * (((FLOAT)(in.r / 255.f) - (FLOAT)(in.g / 255.f)) + 0x4);
-		if (flMax)
+		if (flMax && s)
 			*s = flDelta / flMax;
-		else
-			*s = 0x0;
+		else {
+			if (s) { *s = 0x0; } }
 		*v = flMax;
 	} else {
-		*h = 0x0;
-		*s = 0x0;
-		*v = flMax;
+		if (h && s && v) {
+			*h = 0x0;
+			*s = 0x0;
+			*v = flMax;
+		}
 	}
-	if (*h < 0x0)
+	if (h && *h < 0x0)
 		*h += 0x168;
 }
 
