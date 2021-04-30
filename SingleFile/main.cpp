@@ -330,6 +330,30 @@ typedef struct TAGrgba {
 	INT r, g, b, a;
 	TAGrgba(INT r = 0, INT g = 0, INT b = 0, INT a = 255) : r(r), g(g), b(b), a(a) { }
 }RGBA, * PRGBA;
+void RGBtoHSV(RGBA in, PINT h, PINT s, PINT v) {
+	float flMax = max(max(in.r / 255.f, in.g / 255.f), in.b / 255.f);
+	float flMin = min(min(in.r / 255.f, in.g / 255.f), in.b / 255.f);
+	float flDelta = flMax - flMin;
+	if (flDelta) {
+		if (flMax == in.r)
+			*h = 0x3C * (fmodf(in.g / 255.f - in.b / 255.f, 0x6));
+		if (flMax == in.g)
+			*h = 0x3C * ((in.g / 255.f - in.r / 255.f) + 0x2);
+		if (flMax == in.b)
+			*h = 0x3C * ((in.r / 255.f - in.g / 255.f) + 0x4);
+		if (flMax)
+			*s = flDelta / flMax;
+		else
+			*s = 0x0;
+		*v = flMax;
+	} else {
+		*h = 0x0;
+		*s = 0x0;
+		*v = flMax;
+	}
+	if (*h < 0x0)
+		*h += 0x168;
+}
 namespace menu {
 	struct sctx { BOOLEAN open; INT width; };
 	std::unordered_map < LPCWSTR, BOOLEAN> item_clicks = {};
@@ -506,7 +530,17 @@ namespace menu {
 			interfaces.surface->SetColor(1, 1, 1, 255);
 			interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 255, 0, FALSE);
 			interfaces.surface->SetColor(25, 100, 255, 255);
-			interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 0, 255, TRUE); 
+			interfaces.surface->GradientRectangle(x_pos + x + 7, y_pos + 7, 196, 196, 0, 255, TRUE);
+			const RGBA Hues[7] = {
+				{255, 0, 0}, {255, 0, 255}, {0, 0, 255}, {0, 255, 255}, {0, 255, 0}, {255, 255, 0}, {255, 0, 0}
+			};
+			for (INT i = 0; i < 6; i++) {
+				RGBA coly = Hues[i + 1], colx = Hues[i];
+				interfaces.surface->SetColor(colx.r, colx.g, colx.b, 255);
+				interfaces.surface->DrawFilledRect(x_pos + x + 210, y_pos + 2 + (14 * i), 16, 14);
+				interfaces.surface->SetColor(coly.r, coly.g, coly.b, 255);
+				interfaces.surface->GradientRectangle(x_pos + x + 210, y_pos + 2 + (28 * i), 16, 28, 0, 255, FALSE);
+			}
 		}
 	}
 }

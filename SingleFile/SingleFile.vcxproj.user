@@ -3,9 +3,4 @@
   <PropertyGroup>
     <ShowAllFiles>true</ShowAllFiles>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='SingleFile|Win32'">
-    <LocalDebuggerCommand>csgo.exe</LocalDebuggerCommand>
-    <LocalDebuggerAttach>true</LocalDebuggerAttach>
-    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-  </PropertyGroup>
 </Project>
