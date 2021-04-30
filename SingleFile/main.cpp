@@ -319,16 +319,16 @@ typedef struct TAGrgba {
 	TAGrgba(INT r = 0, INT g = 0, INT b = 0, INT a = 255) : r(r), g(g), b(b), a(a) { }
 }RGBA, * PRGBA;
 void RGBtoHSV(RGBA in, PINT h, PINT s, PINT v) {
-	float flMax = max(max(in.r / 255.f, in.g / 255.f), in.b / 255.f);
-	float flMin = min(min(in.r / 255.f, in.g / 255.f), in.b / 255.f);
+	float flMax = max(max((FLOAT)(in.r / 255.f), (FLOAT)(in.g / 255.f)), (FLOAT)(in.b / 255.f));
+	float flMin = min(min((FLOAT)(in.r / 255.f), (FLOAT)(in.g / 255.f)), (FLOAT)(in.b / 255.f));
 	float flDelta = flMax - flMin;
 	if (flDelta) {
 		if (flMax == in.r)
-			*h = 0x3C * (fmodf(in.g / 255.f - in.b / 255.f, 0x6));
+			*h = 0x3C * (fmodf((FLOAT)(in.g / 255.f) - (FLOAT)(in.b / 255.f), 0x6));
 		if (flMax == in.g)
-			*h = 0x3C * ((in.g / 255.f - in.r / 255.f) + 0x2);
+			*h = 0x3C * (((FLOAT)(in.g / 255.f) - (FLOAT)(in.r / 255.f)) + 0x2);
 		if (flMax == in.b)
-			*h = 0x3C * ((in.r / 255.f - in.g / 255.f) + 0x4);
+			*h = 0x3C * (((FLOAT)(in.r / 255.f) - (FLOAT)(in.g / 255.f)) + 0x4);
 		if (flMax)
 			*s = flDelta / flMax;
 		else
@@ -342,6 +342,7 @@ void RGBtoHSV(RGBA in, PINT h, PINT s, PINT v) {
 	if (*h < 0x0)
 		*h += 0x168;
 }
+
 namespace menu {
 	struct sctx { BOOLEAN open; INT width; };
 	std::unordered_map < LPCWSTR, BOOLEAN> item_clicks = {};
