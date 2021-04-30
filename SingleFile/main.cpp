@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <unordered_map>
+#include <DirectXMath.h>
 #define GET_BITS(x)        ((x >= '0' && x <= '9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
 #define GET_BYTE(x)        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
 PVOID client_dll = NULL;  PVOID engine_dll = NULL;
@@ -316,34 +317,8 @@ VOID save(LPCSTR szConfigName) {
 typedef struct TAGrgba {
 	INT r, g, b, a;
 	TAGrgba(INT r = 0, INT g = 0, INT b = 0, INT a = 255) : r(r), g(g), b(b), a(a) { }
+	FLOAT* AsFloat() { FLOAT p[4] = { this->r / 255.f, this->g / 255.f, this->b / 255.f, this->a / 255.f }; return p; }
 }RGBA, * PRGBA;
-void RGBtoHSV(RGBA in, PINT h, PINT s, PINT v) {
-	float flMax = max(max((FLOAT)(in.r / 255.f), (FLOAT)(in.g / 255.f)), (FLOAT)(in.b / 255.f));
-	float flMin = min(min((FLOAT)(in.r / 255.f), (FLOAT)(in.g / 255.f)), (FLOAT)(in.b / 255.f));
-	float flDelta = flMax - flMin;
-	if (flDelta) {
-		if (flMax == in.r && h)
-			*h = 0x3C * (fmodf((FLOAT)(in.g / 255.f) - (FLOAT)(in.b / 255.f), 0x6));
-		if (flMax == in.g && h)
-			*h = 0x3C * (((FLOAT)(in.g / 255.f) - (FLOAT)(in.r / 255.f)) + 0x2);
-		if (flMax == in.b && h)
-			*h = 0x3C * (((FLOAT)(in.r / 255.f) - (FLOAT)(in.g / 255.f)) + 0x4);
-		if (flMax && s)
-			*s = flDelta / flMax;
-		else {
-			if (s) { *s = 0x0; } }
-		*v = flMax;
-	} else {
-		if (h && s && v) {
-			*h = 0x0;
-			*s = 0x0;
-			*v = flMax;
-		}
-	}
-	if (h && *h < 0x0)
-		*h += 0x168;
-}
-
 namespace menu {
 	struct sctx { BOOLEAN open; INT width; };
 	std::unordered_map < LPCWSTR, BOOLEAN> item_clicks = {};
@@ -968,6 +943,11 @@ VOID WINAPI Init(HMODULE mod) {
 	SetupFonts();
 	LoadHooks();
 	printf("finished loading.\n");
+	RGBA colr(123, 49, 98);
+	INT h, s, v;
+	RGBtoHSV(colr, &h, &s, &v);
+	HSVtoRGB(&colr, h, s, v);
+	printf("col test: (%d, %d, %d) => (%d, %d, %d) => (%d, %d, %d)\n", 123, 49, 98);
 	while (!GetAsyncKeyState(VK_END))
 		Sleep(500);
 	MH_DisableHook(NULL); // NULL = all hooks
