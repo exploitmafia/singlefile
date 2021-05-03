@@ -1,3 +1,6 @@
+## temporary notice
+i have exams the next week or so, so i won't be available to update anything. offset changes I can do though, so if that happens make an issue and I can fix them. Thanks!
+
 # singlefile
 
 This is a featured CS:GO internal cheat written in less than 1000 lines, and in one C++ file. I encourage you to submit feature suggestions and issues with the cheat!
