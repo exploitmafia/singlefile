@@ -1,6 +1,4 @@
-## temporary notice
-i have exams the next week or so, so i won't be available to update anything. offset changes I can do though, so if that happens make an issue and I can fix them. Thanks!
-
+If you have problems injecting, read below!
 # singlefile
 
 This is a featured CS:GO internal cheat written in less than 1000 lines, and in one C++ file. I encourage you to submit feature suggestions and issues with the cheat!
@@ -38,6 +36,9 @@ thanks es3n1n for making the menu draggable!
 * use spam
 * flash reducer
 * vote revealer
+
+## common issues
+If you're having problems injecting, I encourage use to use SingleFile Injector, an injector that bypasses's CS:GO LoadLibrary check. You can find it in the SFI folder.
 
 ## config
 a simple config system is included with this cheat. there is currently only one config, however we plan to expand this.. the save & load buttons operate on a config file "Counter-Strike: Global Offensive\singlefile.cfg", where the config is stored as a binary representation of the config structure. Unfortunately, a more user editable config system such as JSON is not possible due to size constraints.
