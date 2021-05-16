@@ -184,7 +184,7 @@ public:
 	OFFSET(FLOAT, FlashDuration, 0xA420);
 	ROFFSET(FLOAT, FlashMaxAlpha, 0xA41C)
 	OFFSET(INT, Ammo, 0x3264);
-	OFFSET(INT, CrosshairTarget, 0xB3E4);
+	OFFSET(INT, CrosshairTarget, 0xB3E8);
 };
 class CGlobalVarsBase {
 public:
@@ -848,7 +848,7 @@ VOID WINAPI Init (HMODULE mod) {
 	AllocConsole();
 	SetConsoleTitleA("singlefile: console");
 	freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	printf("singlefile v1.3: loading... (compiled with %d lines of code)\n", GetLineCount());
+	printf("singlefile v1.3.1: loading... (compiled with %d lines of code)\n", GetLineCount());
 	csgo_window = FindWindowA("Valve001", NULL);
 	orig_proc = (WNDPROC)SetWindowLongA(csgo_window, GWLP_WNDPROC, (LONG)Wndproc);
 	client_dll = GetModuleHandleA("client.dll");
