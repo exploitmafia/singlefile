@@ -81,6 +81,7 @@ struct sconfig {
 		BOOLEAN m_bSpectatorList;
 		BOOLEAN m_bUseSpam;
 		BOOLEAN m_bVoteRevealer;
+		BOOLEAN m_bClanTag;
 	}misc;
 }config;
 class vec3 {
@@ -530,11 +531,11 @@ VOID RenderMenu() {
 	if (menu::button(L"load", { menu::start_pos.x + 10, menu::start_pos.y + 220 }, { 195, 30 }))
 		load("singlefile");
 	if (menu::button(L"save", { menu::start_pos.x + 215, menu::start_pos.y + 220 }, { 195, 30 }))
-		save("singlefile");
-	RGBA pog(20, 100, 255);
-	menu::colorpicker(170, &pog);
-	static int nTest = 102;
-	menu::slider(L"test slider", 0, 200, &nTest);
+save("singlefile");
+RGBA pog(20, 100, 255);
+menu::colorpicker(170, &pog);
+static int nTest = 102;
+menu::slider(L"test slider", 0, 200, &nTest);
 }
 class CUserCmd {
 private:
@@ -582,7 +583,7 @@ enum {
 	IN_COUNT = 1 << 26,
 };
 namespace colors { unsigned char green[4] = { 0, 255, 0, 255 }; unsigned char lightgreen[4] = { 10, 200, 10, 255 }; unsigned char red[4] = { 255, 0, 0, 255 }; unsigned char lightred[4] = { 200, 10, 10, 255 }; };
-void(*ColoredMsg)(PUCHAR, LPCSTR, ...);
+VOID(*ColoredMsg)(PUCHAR, LPCSTR, ...);
 VOID voterevealer(IGameEvent* evt = NULL) {
 	if (!config.misc.m_bVoteRevealer || !interfaces.engine->IsInGame())
 		return;
@@ -629,6 +630,14 @@ VOID autoaccept(LPCSTR sound) {
 		if (config.misc.m_bAutoAccept)
 			SetLPReady("");
 	}
+}
+LPCSTR szClantag = "";
+VOID clantag() {
+	static VOID(__fastcall * SetClantag)(LPCSTR, LPCSTR) = (decltype(SetClantag))PatternScan(engine_dll, "53 56 57 8B DA 8B F9 FF 15");
+	if (config.misc.m_bClanTag && !strstr(szClantag, "SingleFile"))
+		SetClantag("SingleFile", "SingleFile");
+	if (!config.misc.m_bClanTag && strstr(szClantag, "SingleFile"))
+		SetClantag("\x20", "\x20");
 }
 VOID flashreducer() {
 	if (!config.visuals.m_bFlashReducer || !interfaces.engine->IsInGame())
@@ -778,7 +787,7 @@ VOID speclist() {
 	CBaseEntity* localplayer = interfaces.entitylist->GetEntity(interfaces.engine->GetLocalPlayer());
 	if (!localplayer)
 		return;
-	static INT b = 0;
+	INT b = 0;
 	if (config.misc.m_bSpectatorList) {
 		for (INT i = 1; i <= interfaces.engine->GetMaxClients(); i++) {
 			CBaseEntity* entity = interfaces.entitylist->GetEntity(i);
@@ -800,7 +809,6 @@ VOID speclist() {
 			b += 12;
 		}
 	}
-	b = 0;
 }
 VOID triggerbot(CUserCmd* cmd) {
 	if (!(config.aimbot.m_bTriggerbot))
@@ -837,9 +845,10 @@ BOOLEAN __fastcall _DispatchUserMessage(PVOID ecx, PVOID edx, INT nMessageType, 
 }
 BOOLEAN WINAPI _CreateMove(FLOAT flInputSampleTime, CUserCmd* cmd) {
 	BOOLEAN SetViewAngles = CreateMoveOriginal(flInputSampleTime, cmd);
-	if (cmd->m_nCommandNumber % 4 == 1) {
+	if (cmd->m_nCommandNumber % 10 == 1) {
 		cmd->m_nButtons |= IN_COUNT; // anti-afk kick maybe make it it's own option at some point :P
 		cvars(); // commands that do not to run each tick (i.e don't need usercmd, just dependent on localplayer & being in game)
+		clantag();
 	}
 	if (cmd->m_nButtons & IN_SCORE && config.visuals.m_bRankRevealer)
 		interfaces.client->DispatchUserMessage(50, 0, 0, NULL);
