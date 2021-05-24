@@ -174,7 +174,7 @@ public:
 	OFFSET(FLOAT, FlashDuration, 0xA420);
 	ROFFSET(FLOAT, FlashMaxAlpha, 0xA41C)
 	OFFSET(INT, Ammo, 0x3264);
-	OFFSET(INT, CrosshairTarget, 0xB3E4);
+	OFFSET(INT, CrosshairTarget, 0xB3E8);
 	ROFFSET(INT, ObserverMode, 0x3378);
 };
 class CGlobalVarsBase {
