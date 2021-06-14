@@ -51,7 +51,7 @@ BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved) {
 	if (dwReason == DLL_PROCESS_ATTACH) {
 		AllocConsole();
 		SetConsoleTitleA("SingleFile");
-		WriteConsoleA(GetStdHandle((ULONG32)-11), "SingleFile v2.0 Alpha Loaded\n", 28, NULL, NULL);
+		WriteConsoleA(GetStdHandle((ULONG32)-11), "SingleFile v2.0 Alpha Loaded\n", 29, NULL, NULL);
 		Surface = CreateInterface(GetModuleHandleA("vguimatsurface.dll"), "VGUI_Surface031");
 		Panel = CreateInterface(GetModuleHandleA("vgui2.dll"), "VGUI_Panel009");
 		MenuX = 200; MenuY = 200;
