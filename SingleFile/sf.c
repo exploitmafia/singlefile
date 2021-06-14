@@ -15,13 +15,13 @@ METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32), SetTextFont, (ULONG32 Fo
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32, ULONG32, ULONG32), DrawOutline, (ULONG32 x, ULONG32 y, ULONG32 w, ULONG32 h), Surface, 18, x, y, x + w, y + h);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, LPCWSTR, PULONG32, PULONG32), GetTextSize, (ULONG32 Font, LPCWSTR StringPointer, PULONG32 X, PULONG32 Y), Surface, 79, Font, StringPointer, X, Y);
 VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
-BOOLEAN bMenuActive, bClicked, bInMove, bDragging, bItem; ULONG32 MenuX, MenuY, ActiveX, ActiveY, LastX, LastY; // ActiveX CS:GO Hackage Package
+BOOLEAN bMenuActive, bClicked, bInMove, bDragging, bItem, bWasClicked; ULONG32 MenuX, MenuY, ActiveX, ActiveY, LastX, LastY; WORD ActiveElement; // ActiveX CS:GO Hackage Package
 BOOLEAN __fastcall Utils_InRange(USHORT x, USHORT y, USHORT w, USHORT h) {
 	return (LastX >= x && LastY >= y && LastX <= x + w && LastY <= y + h);
 }
 VOID Menu_RunInput(ULONG32 RawParams) {
 	if (!bClicked) {
-		bDragging = TRUE;
+		bDragging = FALSE;
 		LastX = LOWORD(RawParams); LastY = HIWORD(RawParams);
 	}
 	if (Utils_InRange(MenuX, MenuY, 420, 20) && !bItem)
@@ -31,6 +31,13 @@ VOID Menu_RunInput(ULONG32 RawParams) {
 		MenuY += HIWORD(RawParams) - LastY;
 	}
 	LastX = LOWORD(RawParams); LastY = HIWORD(RawParams);
+}
+BOOLEAN Menu_IsClicked(WORD x, WORD y, WORD w, WORD h) {
+	if (bDragging)
+		return FALSE;
+	if (GetAsyncKeyState(VK_LBUTTON) & 1 && Utils_InRange(x, y, w, h))
+		return TRUE;
+	return FALSE;
 }
 VOID Menu_Window(LPCWSTR WindowName, ULONG32 Width, ULONG32 Height) {
 	ULONG32 X, Y;
@@ -53,9 +60,27 @@ VOID Menu_Window(LPCWSTR WindowName, ULONG32 Width, ULONG32 Height) {
 	Surface_DrawText(WindowName);
 	ActiveX = MenuX + 0xA; ActiveY = MenuY + 0x1E;
 }
+VOID Menu_Checkbox(LPCWSTR Name, PBOOLEAN Byte) {
+	Surface_SetColor(0x17, 0x17, 0x17, 0xFF);
+	Surface_DrawOutline(ActiveX, ActiveY, 0xC, 0xC);
+	Surface_SetColor(0x25, 0x25, 0x2A, 0xFF);
+	Surface_DrawFilledRect(ActiveX + 0x1, ActiveY + 0x1, 0xA, 0xA);
+	if (*Byte) {
+		Surface_SetColor(0x1C, 0x1C, 0xCC, 0xFF);
+		Surface_DrawFilledRect(ActiveX + 0x1, ActiveY + 0x1, 0xA, 0xA);
+	}
+	Surface_SetColor(0xFF, 0xFF, 0xFF, 0xFF);
+	Surface_SetTextPosition(ActiveX + 0xF, ActiveY);
+	Surface_DrawText(Name);
+	if (Menu_IsClicked(ActiveX, ActiveY, 120, 12))
+		*Byte ^= TRUE;
+	ActiveY += 0xF;
+}
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) { 
 	if (StringFindString(Panel_GetPanelName(dwPanel), "MatSystemTopPanel")) {
 		Menu_Window(L"SingleFile", 420, 260);
+		static BOOLEAN bTest;
+		Menu_Checkbox(L"Test", &bTest);
 	}
 	return PaintTraverseOriginal(Panel, 0, dwPanel, bForceRepaint, bAllowRepaint);
 }
