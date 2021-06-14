@@ -1,5 +1,5 @@
 #include <windows.h>
-LPVOID Engine, Surface, EntityList, Panel, Client, ClientMode, Events, Globals, ConsoleVars, Sound;
+LPVOID Engine, Surface, EntityList, Panel, Client, ClientMode, Events, Globals, ConsoleVars, Sound; WNDPROC OriginalWndProc; HANDLE Window;
 INT WINAPI MH_Initialize(VOID);
 INT WINAPI MH_CreateHook(LPVOID pTarget, LPVOID pDetour, LPVOID* ppOriginal);
 INT WINAPI MH_EnableHook(LPVOID pTarget);
@@ -15,7 +15,23 @@ METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32), SetTextFont, (ULONG32 Fo
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32, ULONG32, ULONG32), DrawOutline, (ULONG32 x, ULONG32 y, ULONG32 w, ULONG32 h), Surface, 18, x, y, x + w, y + h);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, LPCWSTR, PULONG32, PULONG32), GetTextSize, (ULONG32 Font, LPCWSTR StringPointer, PULONG32 X, PULONG32 Y), Surface, 79, Font, StringPointer, X, Y);
 VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
-BOOLEAN bMenuActive; ULONG32 MenuX, MenuY, ActiveX, ActiveY; // ActiveX CS:GO Hackage Package
+BOOLEAN bMenuActive, bClicked, bInMove, bDragging, bItem; ULONG32 MenuX, MenuY, ActiveX, ActiveY, LastX, LastY; // ActiveX CS:GO Hackage Package
+BOOLEAN __fastcall Utils_InRange(USHORT x, USHORT y, USHORT w, USHORT h) {
+	return (LastX >= x && LastY >= y && LastX <= x + w && LastY <= y + h);
+}
+VOID Menu_RunInput(ULONG32 RawParams) {
+	if (!bClicked) {
+		bDragging = TRUE;
+		LastX = LOWORD(RawParams); LastY = HIWORD(RawParams);
+	}
+	if (Utils_InRange(MenuX, MenuY, 420, 20) && !bItem)
+		bDragging = TRUE;
+	if (bDragging) {
+		MenuX += LOWORD(RawParams) - LastX;
+		MenuY += HIWORD(RawParams) - LastY;
+	}
+	LastX = LOWORD(RawParams); LastY = HIWORD(RawParams);
+}
 VOID Menu_Window(LPCWSTR WindowName, ULONG32 Width, ULONG32 Height) {
 	ULONG32 X, Y;
 	Surface_SetTextFont(0x11);
@@ -39,25 +55,41 @@ VOID Menu_Window(LPCWSTR WindowName, ULONG32 Width, ULONG32 Height) {
 }
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) { 
 	if (StringFindString(Panel_GetPanelName(dwPanel), "MatSystemTopPanel")) {
-		Menu_Window(L"SingleFile Internal Alpha", 420, 260);
+		Menu_Window(L"SingleFile", 420, 260);
 	}
 	return PaintTraverseOriginal(Panel, 0, dwPanel, bForceRepaint, bAllowRepaint);
 }
+
 LPVOID CreateInterface(HANDLE hModule, LPCSTR szName) {
 	LPVOID(*pfnCreateInterface)(LPCSTR, INT) = (LPVOID(*)(LPCSTR, INT))GetProcAddress(hModule, "CreateInterface");
 	return pfnCreateInterface(szName, 0);
 }
+LRESULT CALLBACK WndProc(HWND hWindow, ULONG32 luMessage, WPARAM wParam, LPARAM lParam) {
+	if (luMessage == WM_KEYDOWN && wParam == VK_INSERT)
+		bMenuActive = !bMenuActive;
+	bClicked = (BOOLEAN)(wParam == MK_LBUTTON);
+	if (luMessage == WM_MOUSEMOVE) {
+		Menu_RunInput(lParam);
+		bInMove = TRUE;
+	}
+	else {
+		bInMove = FALSE;
+	} // thanks to es3n1n for this
+	return CallWindowProcA(OriginalWndProc, hWindow, luMessage, wParam, lParam);
+}
 BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved) {
 	if (dwReason == DLL_PROCESS_ATTACH) {
+		Window = FindWindowA("Valve001", NULL);
+		OriginalWndProc = SetWindowLongA(Window, GWLP_WNDPROC, (ULONG32)WndProc);
 		AllocConsole();
 		SetConsoleTitleA("SingleFile");
-		WriteConsoleA(GetStdHandle((ULONG32)-11), "SingleFile v2.0 Alpha Loaded\n", 29, NULL, NULL);
 		Surface = CreateInterface(GetModuleHandleA("vguimatsurface.dll"), "VGUI_Surface031");
 		Panel = CreateInterface(GetModuleHandleA("vgui2.dll"), "VGUI_Panel009");
 		MenuX = 200; MenuY = 200;
 		MH_Initialize();
 		MH_CreateHook((*(PVOID**)(Panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
 		MH_EnableHook(NULL);
+		WriteConsoleA(GetStdHandle((ULONG32)-11), "SingleFile v2.0 Alpha Loaded\n", 29, NULL, NULL);
 	}
 	return TRUE;
 }
