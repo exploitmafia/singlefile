@@ -5,18 +5,37 @@ INT WINAPI MH_CreateHook(LPVOID pTarget, LPVOID pDetour, LPVOID* ppOriginal);
 INT WINAPI MH_EnableHook(LPVOID pTarget);
 /*CSTD lib*/ ULONG32 WideStringLength(LPCWSTR StringPointer) { ULONG32 Length = 0; while (StringPointer[Length]) Length++; return Length; }; LPSTR StringFindChar(LPCSTR String, CHAR _Character) { CONST CHAR Character = _Character; for (; String[0] != Character; ++String) { if (!String[0]) return NULL; } return String; }; LPSTR StringFindString(LPCSTR Source, LPSTR String) { if (!String[0]) return (LPSTR)Source; for (; (Source = StringFindChar(Source, String[0])) != NULL; ++Source) { LPCSTR TMPV1, TMPV2; for (TMPV1 = Source, TMPV2 = String;;) { if ((++TMPV2)[0]) return (LPSTR)Source; else if ((++TMPV1)[0] != TMPV2[0]) break; }} return NULL; }; ULONG32 StringLength(LPSTR String) { ULONG32 Iterator = 0; while (String[Iterator]) Iterator++; return Iterator; }; // hehe
 #define METHOD(RType, Type, Name, RawArgs, Interface, Index, ...) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0, __VA_ARGS__));} // Ensure EDX is NULL for __thiscall emulation
+#define NMETHOD(RType, Type, Name, RawArgs, Interface, Index) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0));} // Ensure EDX is NULL for __thiscall emulation
+#define OFFSET(RType, Name, Offset) __forceinline RType CBaseEntity_##Name (PBYTE Entity) {return *(RType*)(Entity + Offset); };
+struct TAGConfig {
+	BOOLEAN bBunnyHop, bAutoStrafe; // Movement
+}Config;
+struct vec3 {
+	FLOAT x, y, z;
+};
+struct CUserCmd {
+	ULONG32 : 32; // Padding
+	LONG CommandNumber, TickCount;
+	struct vec3 Angles, Direction;
+	FLOAT Forward, Side, Up;
+	INT Buttons;
+};
 METHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID, ULONG32), GetPanelName, (ULONG32 luPanelID), Panel, 36, luPanelID);
-METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, USHORT, USHORT, USHORT, USHORT), SetColor, (USHORT r, USHORT g, USHORT b, USHORT a), Surface, 15, r, g, b, a);
+METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetColor, (WORD r, WORD g, WORD b, WORD a), Surface, 15, r, g, b, a);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, INT, INT, INT, INT), DrawFilledRect, (INT x, INT y, INT w, INT h), Surface, 16, x, y, x + w, y + h);
-METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, USHORT, USHORT, USHORT, USHORT), SetTextColor, (USHORT r, USHORT g, USHORT b, USHORT a), Surface, 25, r, g, b, a);
+METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetTextColor, (WORD r, WORD g, WORD b, WORD a), Surface, 25, r, g, b, a);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32), SetTextPosition, (ULONG32 x, ULONG32 y), Surface, 26, x, y);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, LPCWSTR, ULONG32), DrawText, (LPCWSTR StringPointer), Surface, 28, StringPointer, WideStringLength(StringPointer));
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32), SetTextFont, (ULONG32 Font), Surface, 23, Font);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32, ULONG32, ULONG32), DrawOutline, (ULONG32 x, ULONG32 y, ULONG32 w, ULONG32 h), Surface, 18, x, y, x + w, y + h);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, LPCWSTR, PULONG32, PULONG32), GetTextSize, (ULONG32 Font, LPCWSTR StringPointer, PULONG32 X, PULONG32 Y), Surface, 79, Font, StringPointer, X, Y);
-VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
+NMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), GetLocalPlayer, (VOID), Engine, 12);
+METHOD(PVOID, PVOID(__fastcall*)(LPVOID, PVOID, ULONG32), GetEntity, (ULONG32 luIndex), EntityList, 3, luIndex);
+OFFSET(INT, Health, 0x100);
+OFFSET(INT, MoveType, 0x25C);
+OFFSET(INT, MoveFlags, 0x104);
 BOOLEAN bMenuActive, bClicked, bInMove, bDragging, bItem, bWasClicked; ULONG32 MenuX, MenuY, ActiveX, ActiveY, LastX, LastY; WORD ActiveElement; // ActiveX CS:GO Hackage Package
-BOOLEAN __fastcall Utils_InRange(USHORT x, USHORT y, USHORT w, USHORT h) {
+BOOLEAN __fastcall Utils_InRange(WORD x, WORD y, WORD w, WORD h) {
 	return (LastX >= x && LastY >= y && LastX <= x + w && LastY <= y + h);
 }
 VOID Menu_RunInput(ULONG32 RawParams) {
@@ -76,15 +95,33 @@ VOID Menu_Checkbox(LPCWSTR Name, PBOOLEAN Byte) {
 		*Byte ^= TRUE;
 	ActiveY += 0xF;
 }
+VOID Features_Bhop(struct CUserCmd* Command) {
+	if (!Config.bBunnyHop)
+		return;
+	PBYTE LocalPlayer = EntityList_GetEntity(1);
+	if (CBaseEntity_Health(LocalPlayer) < 1)
+		return;
+	INT nMoveType = CBaseEntity_MoveType(LocalPlayer);
+	if (nMoveType == 0x9 || nMoveType == 0x8 || nMoveType == 0x4 || nMoveType == 0xA)
+		return;
+	if (!(CBaseEntity_MoveFlags(LocalPlayer) & 0x1))
+		Command->Buttons &= ~0x2;
+}
+VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
+BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, struct CUserCmd*);
+BOOLEAN WINAPI _CreateMove(FLOAT flInputTime, struct CUserCmd* Command ) {
+	BOOLEAN bSetAngles = CreateMoveOriginal(flInputTime, Command);
+	Features_Bhop(Command);
+	return bSetAngles;
+}
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) { 
 	if (StringFindString(Panel_GetPanelName(dwPanel), "MatSystemTopPanel")) {
 		Menu_Window(L"SingleFile", 420, 260);
-		static BOOLEAN bTest;
-		Menu_Checkbox(L"Test", &bTest);
+		Menu_Checkbox(L"Bunnyhop", &Config.bBunnyHop);
+		Menu_Checkbox(L"Autostrafe", &Config.bAutoStrafe);
 	}
 	return PaintTraverseOriginal(Panel, 0, dwPanel, bForceRepaint, bAllowRepaint);
 }
-
 LPVOID CreateInterface(HANDLE hModule, LPCSTR szName) {
 	LPVOID(*pfnCreateInterface)(LPCSTR, INT) = (LPVOID(*)(LPCSTR, INT))GetProcAddress(hModule, "CreateInterface");
 	return pfnCreateInterface(szName, 0);
@@ -110,9 +147,14 @@ BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved) {
 		SetConsoleTitleA("SingleFile");
 		Surface = CreateInterface(GetModuleHandleA("vguimatsurface.dll"), "VGUI_Surface031");
 		Panel = CreateInterface(GetModuleHandleA("vgui2.dll"), "VGUI_Panel009");
+		Client = CreateInterface(GetModuleHandleA("client.dll"), "VClient018");
+		EntityList = CreateInterface(GetModuleHandleA("client.dll"), "VClientEntityList003");
+		Engine = CreateInterface(GetModuleHandleA("engine.dll"), "VEngineClient014");
+		ClientMode = **(VOID***)((*(PDWORD*)(Client))[0xA] + 0x5);
 		MenuX = 200; MenuY = 200;
 		MH_Initialize();
 		MH_CreateHook((*(PVOID**)(Panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
+		MH_CreateHook((*(PVOID**)(ClientMode))[24], &_CreateMove, (PVOID*)&CreateMoveOriginal);
 		MH_EnableHook(NULL);
 		WriteConsoleA(GetStdHandle((ULONG32)-11), "SingleFile v2.0 Alpha Loaded\n", 29, NULL, NULL);
 	}
