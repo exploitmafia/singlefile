@@ -96,9 +96,8 @@ VOID Menu_Checkbox(LPCWSTR Name, PBOOLEAN Byte) {
 	ActiveY += 0xF;
 }
 VOID Features_Bhop(struct CUserCmd* Command) {
-	if (!Config.bBunnyHop)
-		return;
-	PBYTE LocalPlayer = EntityList_GetEntity(1);
+	if (!Config.bBunnyHop) return;
+	PBYTE LocalPlayer = EntityList_GetEntity(Engine_GetLocalPlayer());
 	if (CBaseEntity_Health(LocalPlayer) < 1)
 		return;
 	INT nMoveType = CBaseEntity_MoveType(LocalPlayer);
@@ -106,6 +105,12 @@ VOID Features_Bhop(struct CUserCmd* Command) {
 		return;
 	if (!(CBaseEntity_MoveFlags(LocalPlayer) & 0x1))
 		Command->Buttons &= ~0x2;
+}
+VOID Features_AutoStrafe(struct CUserCmd* Command) {
+	if (!Config.bBunnyHop) return;
+	PBYTE LocalPlayer = EntityList_GetEntity(Engine_GetLocalPlayer());
+	if (CBaseEntity_Health(LocalPlayer) < 1)
+		return;
 }
 VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, struct CUserCmd*);
