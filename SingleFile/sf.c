@@ -19,6 +19,8 @@ struct CUserCmd {
 	struct vec3 Angles, Direction;
 	FLOAT Forward, Side, Up;
 	INT Buttons;
+	ULONG32 : 24; ULONG64 : 64; // Padding, 88-bits
+	WORD MouseDeltaX, MouseDeltaY;
 };
 METHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID, ULONG32), GetPanelName, (ULONG32 luPanelID), Panel, 36, luPanelID);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetColor, (WORD r, WORD g, WORD b, WORD a), Surface, 15, r, g, b, a);
@@ -111,19 +113,28 @@ VOID Features_AutoStrafe(struct CUserCmd* Command) {
 	PBYTE LocalPlayer = EntityList_GetEntity(Engine_GetLocalPlayer());
 	if (CBaseEntity_Health(LocalPlayer) < 1)
 		return;
+	if (!(CBaseEntity_MoveFlags(LocalPlayer) & 1) && CBaseEntity_MoveType(LocalPlayer) != 0x8) {
+		if (Command->MouseDeltaX > 0)
+			Command->Side = 450.0f;
+		else if (Command->MouseDeltaX < 0)
+			Command->Side = -450.0f;
+	}
 }
 VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, struct CUserCmd*);
 BOOLEAN WINAPI _CreateMove(FLOAT flInputTime, struct CUserCmd* Command ) {
 	BOOLEAN bSetAngles = CreateMoveOriginal(flInputTime, Command);
 	Features_Bhop(Command);
+	Features_AutoStrafe(Command);
 	return bSetAngles;
 }
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) { 
 	if (StringFindString(Panel_GetPanelName(dwPanel), "MatSystemTopPanel")) {
-		Menu_Window(L"SingleFile", 420, 260);
-		Menu_Checkbox(L"Bunnyhop", &Config.bBunnyHop);
-		Menu_Checkbox(L"Autostrafe", &Config.bAutoStrafe);
+		if (bMenuActive) {
+			Menu_Window(L"SingleFile", 420, 260);
+			Menu_Checkbox(L"Bunnyhop", &Config.bBunnyHop);
+			Menu_Checkbox(L"Autostrafe", &Config.bAutoStrafe);
+		}
 	}
 	return PaintTraverseOriginal(Panel, 0, dwPanel, bForceRepaint, bAllowRepaint);
 }
