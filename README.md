@@ -33,3 +33,5 @@ adds draggable menu, rank revealer, use spam and flash reducer
 fixes sound issue
 ## v1.3
 adds customizable triggerbot key, vote revealer and code cleanup
+## v2.0 wip
+adding things
