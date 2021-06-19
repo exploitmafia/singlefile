@@ -1,14 +1,17 @@
 #include <windows.h>
-LPVOID Engine, Surface, EntityList, Panel, Client, ClientMode, Events, Globals, ConsoleVars, Sound; WNDPROC OriginalWndProc; HANDLE Window;
+LPVOID Engine, Surface, EntityList, Panel, Client, ClientMode, Events, ConsoleVars, Sound; WNDPROC OriginalWndProc; HANDLE Window; 
 INT WINAPI MH_Initialize(VOID);
 INT WINAPI MH_CreateHook(LPVOID pTarget, LPVOID pDetour, LPVOID* ppOriginal);
 INT WINAPI MH_EnableHook(LPVOID pTarget);
 /*CSTD lib*/ ULONG32 WideStringLength(LPCWSTR StringPointer) { ULONG32 Length = 0; while (StringPointer[Length]) Length++; return Length; }; LPSTR StringFindChar(LPCSTR String, CHAR _Character) { CONST CHAR Character = _Character; for (; String[0] != Character; ++String) { if (!String[0]) return NULL; } return String; }; LPSTR StringFindString(LPCSTR Source, LPSTR String) { if (!String[0]) return (LPSTR)Source; for (; (Source = StringFindChar(Source, String[0])) != NULL; ++Source) { LPCSTR TMPV1, TMPV2; for (TMPV1 = Source, TMPV2 = String;;) { if ((++TMPV2)[0]) return (LPSTR)Source; else if ((++TMPV1)[0] != TMPV2[0]) break; }} return NULL; }; ULONG32 StringLength(LPSTR String) { ULONG32 Iterator = 0; while (String[Iterator]) Iterator++; return Iterator; }; // hehe
 #define METHOD(RType, Type, Name, RawArgs, Interface, Index, ...) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0, __VA_ARGS__));} // Ensure EDX is NULL for __thiscall emulation
 #define NMETHOD(RType, Type, Name, RawArgs, Interface, Index) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0));} // Ensure EDX is NULL for __thiscall emulation
-#define OFFSET(RType, Name, Offset) __forceinline RType CBaseEntity_##Name (PBYTE Entity) {return *(RType*)(Entity + Offset); };
+#define VMETHOD(RType, Type, EName, Name, RawArgs, Index) __forceinline RType EName##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0));} // Ensure EDX is NULL for __thiscall emulation
+#define OFFSET(RType, IName, Name, Offset) __forceinline RType IName##_##Name (PBYTE Entity) {return *(RType*)(Entity + Offset); };
+
 struct TAGConfig {
 	BOOLEAN bBunnyHop, bAutoStrafe; // Movement
+	BOOLEAN bAutoPistol; // Aimbot and related
 }Config;
 struct vec3 {
 	FLOAT x, y, z;
@@ -22,6 +25,10 @@ struct CUserCmd {
 	ULONG32 : 24; ULONG64 : 64; // Padding, 88-bits
 	WORD MouseDeltaX, MouseDeltaY;
 };
+struct CGlobalVarsClientBase {
+	ULONG64 : 64; ULONG64 : 64; // Padding, 128-bits
+	FLOAT m_flCurrentTime;
+}*Globals;
 METHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID, ULONG32), GetPanelName, (ULONG32 luPanelID), Panel, 36, luPanelID);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetColor, (WORD r, WORD g, WORD b, WORD a), Surface, 15, r, g, b, a);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, INT, INT, INT, INT), DrawFilledRect, (INT x, INT y, INT w, INT h), Surface, 16, x, y, x + w, y + h);
@@ -33,9 +40,12 @@ METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32, ULONG32, ULONG32
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, LPCWSTR, PULONG32, PULONG32), GetTextSize, (ULONG32 Font, LPCWSTR StringPointer, PULONG32 X, PULONG32 Y), Surface, 79, Font, StringPointer, X, Y);
 NMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), GetLocalPlayer, (VOID), Engine, 12);
 METHOD(PVOID, PVOID(__fastcall*)(LPVOID, PVOID, ULONG32), GetEntity, (ULONG32 luIndex), EntityList, 3, luIndex);
-OFFSET(INT, Health, 0x100);
-OFFSET(INT, MoveType, 0x25C);
-OFFSET(INT, MoveFlags, 0x104);
+OFFSET(INT, CBaseEntity, Health, 0x100);
+OFFSET(INT, CBaseEntity, MoveType, 0x25C);
+OFFSET(INT, CBaseEntity, MoveFlags, 0x104);
+OFFSET(FLOAT, CBaseCombatWeapon, NextAttack, 0x3238);
+VMETHOD(PVOID, PVOID(__fastcall*)(LPVOID, PVOID), CBaseEntity, GetWeapon, (PVOID Interface), 267);
+VMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), CBaseCombatWeapon, GetWeaponType, (PVOID Interface), 454);
 BOOLEAN bMenuActive, bClicked, bInMove, bDragging, bItem, bWasClicked; ULONG32 MenuX, MenuY, ActiveX, ActiveY, LastX, LastY; WORD ActiveElement; // ActiveX CS:GO Hackage Package
 BOOLEAN __fastcall Utils_InRange(WORD x, WORD y, WORD w, WORD h) {
 	return (LastX >= x && LastY >= y && LastX <= x + w && LastY <= y + h);
@@ -111,8 +121,7 @@ VOID Features_Bhop(struct CUserCmd* Command) {
 VOID Features_AutoStrafe(struct CUserCmd* Command) {
 	if (!Config.bBunnyHop) return;
 	PBYTE LocalPlayer = EntityList_GetEntity(Engine_GetLocalPlayer());
-	if (CBaseEntity_Health(LocalPlayer) < 1)
-		return;
+	if (CBaseEntity_Health(LocalPlayer) < 1) return;
 	if (!(CBaseEntity_MoveFlags(LocalPlayer) & 1) && CBaseEntity_MoveType(LocalPlayer) != 0x8) {
 		if (Command->MouseDeltaX > 0)
 			Command->Side = 450.0f;
@@ -120,12 +129,22 @@ VOID Features_AutoStrafe(struct CUserCmd* Command) {
 			Command->Side = -450.0f;
 	}
 }
+VOID Features_AutoPistol(struct CUserCmd* Command) {
+	if (!Config.bAutoPistol) return;
+	PBYTE LocalPlayer = EntityList_GetEntity(Engine_GetLocalPlayer());
+	if (CBaseEntity_Health(LocalPlayer) < 1) return;
+	PBYTE ActiveWeapon = CBaseEntity_GetWeapon(LocalPlayer);
+	if (CBaseCombatWeapon_GetWeaponType(ActiveWeapon) != 0x1) return;
+	if (CBaseCombatWeapon_NextAttack(ActiveWeapon) > Globals->m_flCurrentTime)
+		Command->Buttons &= ~(1 << 0); // IN_ATTACK
+}
 VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, struct CUserCmd*);
 BOOLEAN WINAPI _CreateMove(FLOAT flInputTime, struct CUserCmd* Command ) {
 	BOOLEAN bSetAngles = CreateMoveOriginal(flInputTime, Command);
 	Features_Bhop(Command);
 	Features_AutoStrafe(Command);
+	Features_AutoPistol(Command);
 	return bSetAngles;
 }
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) { 
@@ -134,6 +153,7 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 			Menu_Window(L"SingleFile", 420, 260);
 			Menu_Checkbox(L"Bunnyhop", &Config.bBunnyHop);
 			Menu_Checkbox(L"Autostrafe", &Config.bAutoStrafe);
+			Menu_Checkbox(L"Autopistol", &Config.bAutoPistol);
 		}
 	}
 	return PaintTraverseOriginal(Panel, 0, dwPanel, bForceRepaint, bAllowRepaint);
@@ -167,6 +187,7 @@ BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved) {
 		EntityList = CreateInterface(GetModuleHandleA("client.dll"), "VClientEntityList003");
 		Engine = CreateInterface(GetModuleHandleA("engine.dll"), "VEngineClient014");
 		ClientMode = **(VOID***)((*(PDWORD*)(Client))[0xA] + 0x5);
+		Globals = **(struct CGlobalVarsClientBase***)((*(PDWORD*)(Client))[0xB] + 0xA);
 		MenuX = 200; MenuY = 200;
 		MH_Initialize();
 		MH_CreateHook((*(PVOID**)(Panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
