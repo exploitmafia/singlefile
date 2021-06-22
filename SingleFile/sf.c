@@ -3,6 +3,26 @@ LPVOID Engine, Surface, EntityList, Panel, Client, ClientMode, Events, ConsoleVa
 INT WINAPI MH_Initialize(VOID);
 INT WINAPI MH_CreateHook(LPVOID pTarget, LPVOID pDetour, LPVOID* ppOriginal);
 INT WINAPI MH_EnableHook(LPVOID pTarget);
+#define GET_BITS(x)        ((x >= '0' && x <= '9') ? (x - '0') : ((x&(~0x20)) - 'A' + 0xA))
+#define GET_BYTE(x)        (GET_BITS(x[0x0]) << 0x4 | GET_BITS(x[0x1]))
+PBYTE PatternScan(HMODULE hModule, LPCSTR _szPattern) {
+	LPCSTR szPattern = _szPattern;  PBYTE Match; PIMAGE_NT_HEADERS Header = (PIMAGE_NT_HEADERS)(hModule + 0x3C); // Skip casting to DOS header, we know the LONG pointer to the NT header @ e_lfanew is Image + 0x3C
+	for (PBYTE pCurrent = (PBYTE)hModule; pCurrent < (PBYTE)(hModule + Header->OptionalHeader.SizeOfCode); pCurrent++) {
+		if (*(PBYTE)szPattern == '?' || *(PBYTE)pCurrent == GET_BYTE(szPattern)) {
+			if (!(*(szPattern))) // End of string
+				return Match;
+			if (!Match)
+				Match = pCurrent;
+			szPattern += 0x2;
+		} else {
+			if (Match)
+				pCurrent = Match;
+			szPattern = _szPattern;
+			Match = NULL;
+		}
+	}
+	return NULL;
+}
 /*CSTD lib*/ ULONG32 WideStringLength(LPCWSTR StringPointer) { ULONG32 Length = 0; while (StringPointer[Length]) Length++; return Length; }; LPSTR StringFindChar(LPCSTR String, CHAR _Character) { CONST CHAR Character = _Character; for (; String[0] != Character; ++String) { if (!String[0]) return NULL; } return String; }; LPSTR StringFindString(LPCSTR Source, LPSTR String) { if (!String[0]) return (LPSTR)Source; for (; (Source = StringFindChar(Source, String[0])) != NULL; ++Source) { LPCSTR TMPV1, TMPV2; for (TMPV1 = Source, TMPV2 = String;;) { if ((++TMPV2)[0]) return (LPSTR)Source; else if ((++TMPV1)[0] != TMPV2[0]) break; }} return NULL; }; ULONG32 StringLength(LPSTR String) { ULONG32 Iterator = 0; while (String[Iterator]) Iterator++; return Iterator; }; // hehe
 #define METHOD(RType, Type, Name, RawArgs, Interface, Index, ...) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0, __VA_ARGS__));} // Ensure EDX is NULL for __thiscall emulation
 #define NMETHOD(RType, Type, Name, RawArgs, Interface, Index) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0));} // Ensure EDX is NULL for __thiscall emulation
@@ -12,6 +32,7 @@ INT WINAPI MH_EnableHook(LPVOID pTarget);
 struct TAGConfig {
 	BOOLEAN bBunnyHop, bAutoStrafe; // Movement
 	BOOLEAN bAutoPistol, bHitSound, bHitEffect; // Aimbot and related
+	BOOLEAN bAutoAccept, bVoteRevealer, bAntiPopup; // Game UI-related things
 }Config;
 struct vec3 {
 	FLOAT x, y, z;
@@ -160,6 +181,12 @@ VOID Features_HitEffects(PVOID Event) {
 VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, struct CUserCmd*);
 BOOLEAN(__fastcall* GameEventsOriginal)(LPVOID, PVOID, PVOID);
+VOID(WINAPI* EmitSoundOriginal)(PVOID, INT, INT, LPCSTR, DWORD, LPCSTR, FLOAT, INT, INT, INT, INT, struct vec3, struct vec3, PVOID, BOOLEAN, FLOAT, INT, PVOID);
+VOID WINAPI _EmitSound(PVOID pFilter, INT nEntityIndex, INT nChannel, LPCSTR szSoundEntry, DWORD dwSoundEntryHash, LPCSTR szSample, FLOAT flVolume, INT nSeed, INT nSoundLevel, INT nFlags, INT nPitch, struct vec3 Origin, struct vec3 Direction, PVOID vecOrigins, BOOLEAN bUpdatePosition, FLOAT flAudioLength, INT nSpeakingEntity, PVOID pUnknown) {
+	if (StringFindString(szSoundEntry, "UIPanorama.popup_accept_match_beep") && Config.bAutoAccept)
+		((BOOLEAN(WINAPI*)(LPCSTR))PatternScan(GetModuleHandleA("client.dll"), "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12"))("");
+	return EmitSoundOriginal(pFilter, nEntityIndex, nChannel, szSoundEntry, dwSoundEntryHash, szSample, flVolume, nSeed, nSoundLevel, nFlags, nPitch, Origin, Direction, vecOrigins, bUpdatePosition, flAudioLength, nSpeakingEntity, pUnknown);
+}
 BOOLEAN WINAPI _GameEvents(PVOID Event) {
 	Features_HitEffects(Event);
 	return GameEventsOriginal(Events, 0, Event);
