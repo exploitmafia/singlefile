@@ -1,5 +1,5 @@
 #include <windows.h>
-LPVOID Engine, Surface, EntityList, Panel, Client, ClientMode, Events, ConsoleVars, Sound; WNDPROC OriginalWndProc; HANDLE Window; 
+LPVOID Engine, Surface, EntityList, Panel, Client, ClientMode, Events, ConsoleVars, Sound; WNDPROC OriginalWndProc; HANDLE Window; VOID(_cdecl* ConsoleMsg)(DWORD Color, LPCSTR Format, ...);
 INT WINAPI MH_Initialize(VOID);
 INT WINAPI MH_CreateHook(LPVOID pTarget, LPVOID pDetour, LPVOID* ppOriginal);
 INT WINAPI MH_EnableHook(LPVOID pTarget);
@@ -23,7 +23,7 @@ PBYTE PatternScan(HMODULE hModule, LPCSTR _szPattern) {
 	}
 	return NULL;
 }
-/*CSTD lib*/ ULONG32 WideStringLength(LPCWSTR StringPointer) { ULONG32 Length = 0; while (StringPointer[Length]) Length++; return Length; }; LPSTR StringFindChar(LPCSTR String, CHAR _Character) { CONST CHAR Character = _Character; for (; String[0] != Character; ++String) { if (!String[0]) return NULL; } return String; }; LPSTR StringFindString(LPCSTR Source, LPSTR String) { if (!String[0]) return (LPSTR)Source; for (; (Source = StringFindChar(Source, String[0])) != NULL; ++Source) { LPCSTR TMPV1, TMPV2; for (TMPV1 = Source, TMPV2 = String;;) { if ((++TMPV2)[0]) return (LPSTR)Source; else if ((++TMPV1)[0] != TMPV2[0]) break; }} return NULL; }; ULONG32 StringLength(LPSTR String) { ULONG32 Iterator = 0; while (String[Iterator]) Iterator++; return Iterator; }; // hehe
+/*CSTD lib*/ ULONG32 WideStringLength(LPCWSTR StringPointer) { ULONG32 Length = 0; while (StringPointer[Length]) Length++; return Length; }; LPSTR StringFindChar(LPCSTR String, CHAR _Character) { CONST CHAR Character = _Character; for (; String[0] != Character; ++String) { if (!String[0]) return NULL; } return String; }; LPSTR StringFindString(LPCSTR Source, LPSTR String) { if (!String[0]) return (LPSTR)Source; for (; (Source = StringFindChar(Source, String[0])) != NULL; ++Source) { LPCSTR TMPV1, TMPV2; for (TMPV1 = Source, TMPV2 = String;;) { if ((++TMPV2)[0]) return (LPSTR)Source; else if ((++TMPV1)[0] != TMPV2[0]) break; } } return NULL; }; ULONG32 StringLength(LPSTR String) { ULONG32 Iterator = 0; while (String[Iterator]) Iterator++; return Iterator; }; /*VAARDIC ARGS*/ typedef LPSTR VaardicList;
 #define METHOD(RType, Type, Name, RawArgs, Interface, Index, ...) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0, __VA_ARGS__));} // Ensure EDX is NULL for __thiscall emulation
 #define NMETHOD(RType, Type, Name, RawArgs, Interface, Index) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0));} // Ensure EDX is NULL for __thiscall emulation
 #define VMETHOD(RType, Type, EName, Name, RawArgs, Index) __forceinline RType EName##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0));} // Ensure EDX is NULL for __thiscall emulation
@@ -57,7 +57,7 @@ struct CEnginePlayerInformation {
 }*PlayerInfo; // Constant pointer, to avoid redefinition.
 METHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID, ULONG32), GetPanelName, (ULONG32 luPanelID), Panel, 36, luPanelID); // VGUIPanel Block
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetColor, (WORD r, WORD g, WORD b, WORD a), Surface, 15, r, g, b, a); // CMatSystemSurface Block
-METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, INT, INT, INT, INT), DrawFilledRect, (INT x, INT y, INT w, INT h), Surface, 16, x, y, x + w, y + h);
+METHOD(VOID, VOID(__fastcall*)(LPVOID,		PVOID, INT, INT, INT, INT), DrawFilledRect, (INT x, INT y, INT w, INT h), Surface, 16, x, y, x + w, y + h);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetTextColor, (WORD r, WORD g, WORD b, WORD a), Surface, 25, r, g, b, a);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32), SetTextPosition, (ULONG32 x, ULONG32 y), Surface, 26, x, y);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, LPCWSTR, ULONG32), DrawText, (LPCWSTR StringPointer), Surface, 28, StringPointer, WideStringLength(StringPointer));
@@ -77,6 +77,7 @@ VMETHOD(PVOID, PVOID(__fastcall*)(LPVOID, PVOID), CBaseEntity, GetWeapon, (PVOID
 VMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), CBaseCombatWeapon, GetWeaponType, (PVOID Interface), 454); // CBaseCombatWeapon Block
 VMETHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID), IGameEvent, GetEventName, (PVOID Interface), 1); // IGameEvent Block
 VAMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID, LPCSTR), IGameEvent, GetInteger, (PVOID Interface, LPCSTR szKeyName), 6, szKeyName);
+VAMETHOD(BOOLEAN, BOOLEAN(__fastcall*)(LPVOID, PVOID, LPCSTR), IGameEvent, GetBoolean, (PVOID Interface, LPCSTR szKeyName), 5, szKeyName)
 BOOLEAN bMenuActive, bClicked, bInMove, bDragging, bItem, bWasClicked; ULONG32 MenuX, MenuY, ActiveX, ActiveY, LastX, LastY; WORD ActiveElement; // ActiveX CS:GO Hackage Package
 BOOLEAN __fastcall Utils_InRange(WORD x, WORD y, WORD w, WORD h) {
 	return (LastX >= x && LastY >= y && LastX <= x + w && LastY <= y + h);
@@ -170,12 +171,19 @@ VOID Features_AutoPistol(struct CUserCmd* Command) {
 		Command->Buttons &= ~(1 << 0); // IN_ATTACK
 }
 VOID Features_HitEffects(PVOID Event) {
-	if (StringFindString(IGameEvent_GetEventName(Event), "player_hurt") ) {
+	if (StringFindString(IGameEvent_GetEventName(Event), "player_hurt")) {
 		Engine_GetPlayerInfo(Engine_GetLocalPlayer(), PlayerInfo);
 		if (IGameEvent_GetInteger(Event, "attacker") == PlayerInfo->nUserID) {
 			if (Config.bHitEffect) *(CBaseEntity_HealthShotTime(EntityList_GetEntity(Engine_GetLocalPlayer()))) = Globals->m_flCurrentTime + 1.0f;
 			if (Config.bHitSound) Engine_ClientCommand("play buttons/arena_switch_press_02");
 		}
+	}
+	else if (StringFindString(IGameEvent_GetEventName(Event), "vote_cast") && Config.bVoteRevealer) {
+		PVOID Entity = EntityList_GetEntity(IGameEvent_GetInteger(Event, "entityid"));
+		BOOLEAN Vote = !(IGameEvent_GetBoolean(Event, "vote_option"));
+		Engine_GetPlayerInfo(IGameEvent_GetInteger(Event, "entityid"), PlayerInfo);
+		ConsoleMsg(Vote ? 0x11CC11 : 0xCC1111, "[SingleFile]: %s voted %s.\n", 3, PlayerInfo->szPlayerName, Vote ? "Yes" : "No");
+		Beep(Vote ? 486 : 347, 200);
 	}
 }
 VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
@@ -207,6 +215,7 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 			Menu_Checkbox(L"Autopistol", &Config.bAutoPistol);
 			Menu_Checkbox(L"Hit Effect", &Config.bHitEffect);
 			Menu_Checkbox(L"Hit Sound", &Config.bHitSound);
+			Menu_Checkbox(L"Vote revealer", &Config.bVoteRevealer);
 		}
 	}
 	return PaintTraverseOriginal(Panel, 0, dwPanel, bForceRepaint, bAllowRepaint);
@@ -242,6 +251,7 @@ BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved) {
 		Events = CreateInterface(GetModuleHandleA("engine.dll"), "GAMEEVENTSMANANGER002");
 		ClientMode = **(VOID***)((*(PDWORD*)(Client))[0xA] + 0x5);
 		Globals = **(struct CGlobalVarsClientBase***)((*(PDWORD*)(Client))[0xB] + 0xA);
+		ConsoleMsg = GetProcAddress(GetModuleHandleA("tier0.dll"), "?ConColorMsg@@YAXABVColor@@PBDZZ"); // I sure love me some mangled names!
 		MenuX = 200; MenuY = 200;
 		MH_Initialize();
 		MH_CreateHook((*(PVOID**)(Panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
