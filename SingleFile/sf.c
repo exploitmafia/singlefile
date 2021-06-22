@@ -7,11 +7,11 @@ INT WINAPI MH_EnableHook(LPVOID pTarget);
 #define METHOD(RType, Type, Name, RawArgs, Interface, Index, ...) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0, __VA_ARGS__));} // Ensure EDX is NULL for __thiscall emulation
 #define NMETHOD(RType, Type, Name, RawArgs, Interface, Index) __forceinline RType Interface##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0));} // Ensure EDX is NULL for __thiscall emulation
 #define VMETHOD(RType, Type, EName, Name, RawArgs, Index) __forceinline RType EName##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0));} // Ensure EDX is NULL for __thiscall emulation
+#define VAMETHOD(RType, Type, EName, Name, RawArgs, Index, ...) __forceinline RType EName##_##Name RawArgs {return (((Type)(((PULONG32*)(Interface))[0][Index]))(Interface, 0, __VA_ARGS__));} // Ensure EDX is NULL for __thiscall emulation
 #define OFFSET(RType, IName, Name, Offset) __forceinline RType IName##_##Name (PBYTE Entity) {return *(RType*)(Entity + Offset); };
-
 struct TAGConfig {
 	BOOLEAN bBunnyHop, bAutoStrafe; // Movement
-	BOOLEAN bAutoPistol; // Aimbot and related
+	BOOLEAN bAutoPistol, bHitSound, bHitEffect; // Aimbot and related
 }Config;
 struct vec3 {
 	FLOAT x, y, z;
@@ -29,8 +29,13 @@ struct CGlobalVarsClientBase {
 	ULONG64 : 64; ULONG64 : 64; // Padding, 128-bits
 	FLOAT m_flCurrentTime;
 }*Globals;
-METHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID, ULONG32), GetPanelName, (ULONG32 luPanelID), Panel, 36, luPanelID);
-METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetColor, (WORD r, WORD g, WORD b, WORD a), Surface, 15, r, g, b, a);
+struct CEnginePlayerInformation {
+	ULONG64 : 64; ULONG64 : 64; // Pading, 128-bits
+	CHAR szPlayerName[128];
+	INT nUserID;
+}*PlayerInfo; // Constant pointer, to avoid redefinition.
+METHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID, ULONG32), GetPanelName, (ULONG32 luPanelID), Panel, 36, luPanelID); // VGUIPanel Block
+METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetColor, (WORD r, WORD g, WORD b, WORD a), Surface, 15, r, g, b, a); // CMatSystemSurface Block
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, INT, INT, INT, INT), DrawFilledRect, (INT x, INT y, INT w, INT h), Surface, 16, x, y, x + w, y + h);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetTextColor, (WORD r, WORD g, WORD b, WORD a), Surface, 25, r, g, b, a);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32), SetTextPosition, (ULONG32 x, ULONG32 y), Surface, 26, x, y);
@@ -38,14 +43,19 @@ METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, LPCWSTR, ULONG32), DrawText, (LPCW
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32), SetTextFont, (ULONG32 Font), Surface, 23, Font);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32, ULONG32, ULONG32), DrawOutline, (ULONG32 x, ULONG32 y, ULONG32 w, ULONG32 h), Surface, 18, x, y, x + w, y + h);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, LPCWSTR, PULONG32, PULONG32), GetTextSize, (ULONG32 Font, LPCWSTR StringPointer, PULONG32 X, PULONG32 Y), Surface, 79, Font, StringPointer, X, Y);
-NMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), GetLocalPlayer, (VOID), Engine, 12);
-METHOD(PVOID, PVOID(__fastcall*)(LPVOID, PVOID, ULONG32), GetEntity, (ULONG32 luIndex), EntityList, 3, luIndex);
-OFFSET(INT, CBaseEntity, Health, 0x100);
+NMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), GetLocalPlayer, (VOID), Engine, 12); // IVEngineClient Block
+METHOD(BOOLEAN, BOOLEAN(__fastcall*)(LPVOID, PVOID, INT, struct CEnginePlayerInformation*), GetPlayerInfo, (INT nIndex, struct CEnginePlayerInformation* pPlayer), Engine, 8, nIndex, pPlayer);
+METHOD(VOID, VOID(__fastcall*)(LPVOID, LPVOID, LPCSTR, BOOLEAN), ClientCommand, (LPCSTR szCommand), Engine, 114, szCommand, FALSE);
+METHOD(PVOID, PVOID(__fastcall*)(LPVOID, PVOID, ULONG32), GetEntity, (ULONG32 luIndex), EntityList, 3, luIndex); // CBaseClientEntityList Block
+OFFSET(INT, CBaseEntity, Health, 0x100); // CBaseEntity Block
 OFFSET(INT, CBaseEntity, MoveType, 0x25C);
 OFFSET(INT, CBaseEntity, MoveFlags, 0x104);
+OFFSET(PFLOAT, CBaseEntity, HealthShotTime, 0x3AAC); // this offset is very likely wrong, however I do not have CS:GO installed at the moment, new laptop :p
 OFFSET(FLOAT, CBaseCombatWeapon, NextAttack, 0x3238);
 VMETHOD(PVOID, PVOID(__fastcall*)(LPVOID, PVOID), CBaseEntity, GetWeapon, (PVOID Interface), 267);
-VMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), CBaseCombatWeapon, GetWeaponType, (PVOID Interface), 454);
+VMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), CBaseCombatWeapon, GetWeaponType, (PVOID Interface), 454); // CBaseCombatWeapon Block
+VMETHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID), IGameEvent, GetEventName, (PVOID Interface), 1); // IGameEvent Block
+VAMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID, LPCSTR), IGameEvent, GetInteger, (PVOID Interface, LPCSTR szKeyName), 6, szKeyName);
 BOOLEAN bMenuActive, bClicked, bInMove, bDragging, bItem, bWasClicked; ULONG32 MenuX, MenuY, ActiveX, ActiveY, LastX, LastY; WORD ActiveElement; // ActiveX CS:GO Hackage Package
 BOOLEAN __fastcall Utils_InRange(WORD x, WORD y, WORD w, WORD h) {
 	return (LastX >= x && LastY >= y && LastX <= x + w && LastY <= y + h);
@@ -138,8 +148,22 @@ VOID Features_AutoPistol(struct CUserCmd* Command) {
 	if (CBaseCombatWeapon_NextAttack(ActiveWeapon) > Globals->m_flCurrentTime)
 		Command->Buttons &= ~(1 << 0); // IN_ATTACK
 }
+VOID Features_HitEffects(PVOID Event) {
+	if (StringFindString(IGameEvent_GetEventName(Event), "player_hurt") ) {
+		Engine_GetPlayerInfo(Engine_GetLocalPlayer(), PlayerInfo);
+		if (IGameEvent_GetInteger(Event, "attacker") == PlayerInfo->nUserID) {
+			if (Config.bHitEffect) *(CBaseEntity_HealthShotTime(EntityList_GetEntity(Engine_GetLocalPlayer()))) = Globals->m_flCurrentTime + 1.0f;
+			if (Config.bHitSound) Engine_ClientCommand("play buttons/arena_switch_press_02");
+		}
+	}
+}
 VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
 BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, struct CUserCmd*);
+BOOLEAN(__fastcall* GameEventsOriginal)(LPVOID, PVOID, PVOID);
+BOOLEAN WINAPI _GameEvents(PVOID Event) {
+	Features_HitEffects(Event);
+	return GameEventsOriginal(Events, 0, Event);
+}
 BOOLEAN WINAPI _CreateMove(FLOAT flInputTime, struct CUserCmd* Command ) {
 	BOOLEAN bSetAngles = CreateMoveOriginal(flInputTime, Command);
 	Features_Bhop(Command);
@@ -154,6 +178,8 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 			Menu_Checkbox(L"Bunnyhop", &Config.bBunnyHop);
 			Menu_Checkbox(L"Autostrafe", &Config.bAutoStrafe);
 			Menu_Checkbox(L"Autopistol", &Config.bAutoPistol);
+			Menu_Checkbox(L"Hit Effect", &Config.bHitEffect);
+			Menu_Checkbox(L"Hit Sound", &Config.bHitSound);
 		}
 	}
 	return PaintTraverseOriginal(Panel, 0, dwPanel, bForceRepaint, bAllowRepaint);
@@ -186,12 +212,14 @@ BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved) {
 		Client = CreateInterface(GetModuleHandleA("client.dll"), "VClient018");
 		EntityList = CreateInterface(GetModuleHandleA("client.dll"), "VClientEntityList003");
 		Engine = CreateInterface(GetModuleHandleA("engine.dll"), "VEngineClient014");
+		Events = CreateInterface(GetModuleHandleA("engine.dll"), "GAMEEVENTSMANANGER002");
 		ClientMode = **(VOID***)((*(PDWORD*)(Client))[0xA] + 0x5);
 		Globals = **(struct CGlobalVarsClientBase***)((*(PDWORD*)(Client))[0xB] + 0xA);
 		MenuX = 200; MenuY = 200;
 		MH_Initialize();
 		MH_CreateHook((*(PVOID**)(Panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
 		MH_CreateHook((*(PVOID**)(ClientMode))[24], &_CreateMove, (PVOID*)&CreateMoveOriginal);
+		MH_CreateHook((*(PVOID**)(Events))[9], &_GameEvents, (PVOID*)&GameEventsOriginal);
 		MH_EnableHook(NULL);
 		WriteConsoleA(GetStdHandle((ULONG32)-11), "SingleFile v2.0 Alpha Loaded\n", 29, NULL, NULL);
 	}
