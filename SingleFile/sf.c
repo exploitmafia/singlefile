@@ -32,7 +32,7 @@ PBYTE PatternScan(HMODULE hModule, LPCSTR _szPattern) {
 struct TAGConfig {
 	BOOLEAN bBunnyHop, bAutoStrafe; // Movement
 	BOOLEAN bAutoPistol, bHitSound, bHitEffect; // Aimbot and related
-	BOOLEAN bAutoAccept, bVoteRevealer, bAntiPopup; // Game UI-related things
+	BOOLEAN bAutoAccept, bVoteRevealer, bAntiPopup, bRankRevealer; // Game UI-related things
 }Config;
 struct vec3 {
 	FLOAT x, y, z;
@@ -56,8 +56,9 @@ struct CEnginePlayerInformation {
 	INT nUserID;
 }*PlayerInfo; // Constant pointer, to avoid redefinition.
 METHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID, ULONG32), GetPanelName, (ULONG32 luPanelID), Panel, 36, luPanelID); // VGUIPanel Block
+METHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID, ULONG32, BOOLEAN), SetMouseInput, (ULONG32 luPanel, BOOLEAN bState), Panel, 32, luPanel, bState);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetColor, (WORD r, WORD g, WORD b, WORD a), Surface, 15, r, g, b, a); // CMatSystemSurface Block
-METHOD(VOID, VOID(__fastcall*)(LPVOID,		PVOID, INT, INT, INT, INT), DrawFilledRect, (INT x, INT y, INT w, INT h), Surface, 16, x, y, x + w, y + h);
+METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, INT, INT, INT, INT), DrawFilledRect, (INT x, INT y, INT w, INT h), Surface, 16, x, y, x + w, y + h);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, WORD, WORD, WORD, WORD), SetTextColor, (WORD r, WORD g, WORD b, WORD a), Surface, 25, r, g, b, a);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, ULONG32, ULONG32), SetTextPosition, (ULONG32 x, ULONG32 y), Surface, 26, x, y);
 METHOD(VOID, VOID(__fastcall*)(LPVOID, PVOID, LPCWSTR, ULONG32), DrawText, (LPCWSTR StringPointer), Surface, 28, StringPointer, WideStringLength(StringPointer));
@@ -78,6 +79,7 @@ VMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID), CBaseCombatWeapon, GetWeaponType, 
 VMETHOD(LPCSTR, LPCSTR(__fastcall*)(LPVOID, PVOID), IGameEvent, GetEventName, (PVOID Interface), 1); // IGameEvent Block
 VAMETHOD(INT, INT(__fastcall*)(LPVOID, PVOID, LPCSTR), IGameEvent, GetInteger, (PVOID Interface, LPCSTR szKeyName), 6, szKeyName);
 VAMETHOD(BOOLEAN, BOOLEAN(__fastcall*)(LPVOID, PVOID, LPCSTR), IGameEvent, GetBoolean, (PVOID Interface, LPCSTR szKeyName), 5, szKeyName)
+METHOD(BOOLEAN, BOOLEAN(__fastcall*)(LPVOID, PVOID, INT, INT, INT, PVOID), DispatchUserMessage, (INT nMessage, INT nArgument1, INT nArgument2, PVOID pMessage), Client, 38, nMessage, nArgument1, nArgument2, pMessage); // IVClient Block
 BOOLEAN bMenuActive, bClicked, bInMove, bDragging, bItem, bWasClicked; ULONG32 MenuX, MenuY, ActiveX, ActiveY, LastX, LastY; WORD ActiveElement; // ActiveX CS:GO Hackage Package
 BOOLEAN __fastcall Utils_InRange(WORD x, WORD y, WORD w, WORD h) {
 	return (LastX >= x && LastY >= y && LastX <= x + w && LastY <= y + h);
@@ -170,7 +172,28 @@ VOID Features_AutoPistol(struct CUserCmd* Command) {
 	if (CBaseCombatWeapon_NextAttack(ActiveWeapon) > Globals->m_flCurrentTime)
 		Command->Buttons &= ~(1 << 0); // IN_ATTACK
 }
-VOID Features_HitEffects(PVOID Event) {
+VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
+BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, struct CUserCmd*);
+BOOLEAN(__fastcall* GameEventsOriginal)(LPVOID, PVOID, PVOID);
+VOID(WINAPI* EmitSoundOriginal)(PVOID, INT, INT, LPCSTR, DWORD, LPCSTR, FLOAT, INT, INT, INT, INT, struct vec3, struct vec3, PVOID, BOOLEAN, FLOAT, INT, PVOID);
+BOOLEAN(__fastcall* DispatchUserMessageOriginal)(LPVOID, PVOID, INT, INT, INT, PVOID);
+BOOLEAN __fastcall _DispatchUserMessage(INT nMessage, INT nArgument1, INT nArgument2, PVOID pMessage) {
+	if (nMessage == 47 && Config.bVoteRevealer) {
+		ConsoleMsg(0x00FF00FF, "[SingleFile] Vote Passed!\n");
+		Beep(440, 250);
+	}
+	else if (nMessage == 48 && Config.bVoteRevealer) {
+		ConsoleMsg(0xFF0000FF, "[SingleFile] Vote Failed!\n");
+		Beep(384, 250);
+	}
+	return DispatchUserMessageOriginal(Client, 0, nMessage, nArgument1, nArgument2, pMessage);
+}
+VOID WINAPI _EmitSound(PVOID pFilter, INT nEntityIndex, INT nChannel, LPCSTR szSoundEntry, DWORD dwSoundEntryHash, LPCSTR szSample, FLOAT flVolume, INT nSeed, INT nSoundLevel, INT nFlags, INT nPitch, struct vec3 Origin, struct vec3 Direction, PVOID vecOrigins, BOOLEAN bUpdatePosition, FLOAT flAudioLength, INT nSpeakingEntity, PVOID pUnknown) {
+	if (StringFindString(szSoundEntry, "UIPanorama.popup_accept_match_beep") && Config.bAutoAccept)
+		((BOOLEAN(WINAPI*)(LPCSTR))PatternScan(GetModuleHandleA("client.dll"), "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12"))("");
+	return EmitSoundOriginal(pFilter, nEntityIndex, nChannel, szSoundEntry, dwSoundEntryHash, szSample, flVolume, nSeed, nSoundLevel, nFlags, nPitch, Origin, Direction, vecOrigins, bUpdatePosition, flAudioLength, nSpeakingEntity, pUnknown);
+}
+BOOLEAN WINAPI _GameEvents(PVOID Event) {
 	if (StringFindString(IGameEvent_GetEventName(Event), "player_hurt")) {
 		Engine_GetPlayerInfo(Engine_GetLocalPlayer(), PlayerInfo);
 		if (IGameEvent_GetInteger(Event, "attacker") == PlayerInfo->nUserID) {
@@ -182,21 +205,9 @@ VOID Features_HitEffects(PVOID Event) {
 		PVOID Entity = EntityList_GetEntity(IGameEvent_GetInteger(Event, "entityid"));
 		BOOLEAN Vote = !(IGameEvent_GetBoolean(Event, "vote_option"));
 		Engine_GetPlayerInfo(IGameEvent_GetInteger(Event, "entityid"), PlayerInfo);
-		ConsoleMsg(Vote ? 0x11CC11 : 0xCC1111, "[SingleFile]: %s voted %s.\n", 3, PlayerInfo->szPlayerName, Vote ? "Yes" : "No");
+		ConsoleMsg(Vote ? 0x11CC11FF : 0xCC1111FF, "[SingleFile]: %s voted %s.\n", 3, PlayerInfo->szPlayerName, Vote ? "Yes" : "No");
 		Beep(Vote ? 486 : 347, 200);
 	}
-}
-VOID(__fastcall* PaintTraverseOriginal)(LPVOID, PVOID, DWORD, BOOLEAN, BOOLEAN);
-BOOLEAN(WINAPI* CreateMoveOriginal)(FLOAT, struct CUserCmd*);
-BOOLEAN(__fastcall* GameEventsOriginal)(LPVOID, PVOID, PVOID);
-VOID(WINAPI* EmitSoundOriginal)(PVOID, INT, INT, LPCSTR, DWORD, LPCSTR, FLOAT, INT, INT, INT, INT, struct vec3, struct vec3, PVOID, BOOLEAN, FLOAT, INT, PVOID);
-VOID WINAPI _EmitSound(PVOID pFilter, INT nEntityIndex, INT nChannel, LPCSTR szSoundEntry, DWORD dwSoundEntryHash, LPCSTR szSample, FLOAT flVolume, INT nSeed, INT nSoundLevel, INT nFlags, INT nPitch, struct vec3 Origin, struct vec3 Direction, PVOID vecOrigins, BOOLEAN bUpdatePosition, FLOAT flAudioLength, INT nSpeakingEntity, PVOID pUnknown) {
-	if (StringFindString(szSoundEntry, "UIPanorama.popup_accept_match_beep") && Config.bAutoAccept)
-		((BOOLEAN(WINAPI*)(LPCSTR))PatternScan(GetModuleHandleA("client.dll"), "55 8B EC 83 E4 F8 8B 4D 08 BA ? ? ? ? E8 ? ? ? ? 85 C0 75 12"))("");
-	return EmitSoundOriginal(pFilter, nEntityIndex, nChannel, szSoundEntry, dwSoundEntryHash, szSample, flVolume, nSeed, nSoundLevel, nFlags, nPitch, Origin, Direction, vecOrigins, bUpdatePosition, flAudioLength, nSpeakingEntity, pUnknown);
-}
-BOOLEAN WINAPI _GameEvents(PVOID Event) {
-	Features_HitEffects(Event);
 	return GameEventsOriginal(Events, 0, Event);
 }
 BOOLEAN WINAPI _CreateMove(FLOAT flInputTime, struct CUserCmd* Command ) {
@@ -204,6 +215,8 @@ BOOLEAN WINAPI _CreateMove(FLOAT flInputTime, struct CUserCmd* Command ) {
 	Features_Bhop(Command);
 	Features_AutoStrafe(Command);
 	Features_AutoPistol(Command);
+	if (Config.bRankRevealer && Command->Buttons & (1 << 16))
+		Client_DispatchUserMessage(50, 0, 0, NULL);
 	return bSetAngles;
 }
 VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowRepaint) { 
@@ -216,8 +229,10 @@ VOID WINAPI _PaintTraverse(DWORD dwPanel, BOOLEAN bForceRepaint, BOOLEAN bAllowR
 			Menu_Checkbox(L"Hit Effect", &Config.bHitEffect);
 			Menu_Checkbox(L"Hit Sound", &Config.bHitSound);
 			Menu_Checkbox(L"Vote revealer", &Config.bVoteRevealer);
+			Menu_Checkbox(L"Rank revealer", &Config.bRankRevealer);
 		}
 	}
+	Panel_SetMouseInput(dwPanel, !bMenuActive);
 	return PaintTraverseOriginal(Panel, 0, dwPanel, bForceRepaint, bAllowRepaint);
 }
 LPVOID CreateInterface(HANDLE hModule, LPCSTR szName) {
@@ -251,12 +266,13 @@ BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved) {
 		Events = CreateInterface(GetModuleHandleA("engine.dll"), "GAMEEVENTSMANANGER002");
 		ClientMode = **(VOID***)((*(PDWORD*)(Client))[0xA] + 0x5);
 		Globals = **(struct CGlobalVarsClientBase***)((*(PDWORD*)(Client))[0xB] + 0xA);
-		ConsoleMsg = GetProcAddress(GetModuleHandleA("tier0.dll"), "?ConColorMsg@@YAXABVColor@@PBDZZ"); // I sure love me some mangled names!
+		ConsoleMsg = (VOID(*)(DWORD, LPCSTR, ...))GetProcAddress(GetModuleHandleA("tier0.dll"), "?ConColorMsg@@YAXABVColor@@PBDZZ"); // I sure love me some mangled names!
 		MenuX = 200; MenuY = 200;
 		MH_Initialize();
 		MH_CreateHook((*(PVOID**)(Panel))[41], &_PaintTraverse, (PVOID*)&PaintTraverseOriginal);
 		MH_CreateHook((*(PVOID**)(ClientMode))[24], &_CreateMove, (PVOID*)&CreateMoveOriginal);
 		MH_CreateHook((*(PVOID**)(Events))[9], &_GameEvents, (PVOID*)&GameEventsOriginal);
+		MH_CreateHook((*(PVOID**)(Client))[38], &_DispatchUserMessage, (PVOID*)&DispatchUserMessageOriginal);
 		MH_EnableHook(NULL);
 		WriteConsoleA(GetStdHandle((ULONG32)-11), "SingleFile v2.0 Alpha Loaded\n", 29, NULL, NULL);
 	}
